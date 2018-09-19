@@ -1,0 +1,6 @@
+[submodule "showcases"]
+	path = showcases
+	url = https://github.com/dodo5407/inet-showcases.git
+[submodule "tutorials"]
+	path = tutorials
+	url = https://github.com/dodo5407/inet-tutorials.git
