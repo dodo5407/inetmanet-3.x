@@ -160,6 +160,20 @@ void MobilityBase::updateVisualRepresentation()
 #ifdef WITH_VISUALIZERS
     if (hasGUI() && visualRepresentation != nullptr) {
         inet::visualizer::MobilityCanvasVisualizer::setPosition(visualRepresentation, canvasProjection->computeCanvasPoint(lastPosition));
+        int Z_step = constraintAreaMax.z / 5;
+        char icon_s[3];
+        if(lastPosition.z > Z_step*4){
+                snprintf(icon_s, sizeof(icon_s), "%s", "vl");
+        }else if (lastPosition.z > Z_step*3){
+                snprintf(icon_s, sizeof(icon_s), "%s", "l");
+        }else if (lastPosition.z > Z_step*2){
+                snprintf(icon_s, sizeof(icon_s), "%s", "n");
+        }else if (lastPosition.z > Z_step){
+                snprintf(icon_s, sizeof(icon_s), "%s", "s");
+        }else{
+                snprintf(icon_s, sizeof(icon_s), "%s", "vs");
+        }
+        visualRepresentation->getDisplayString().setTagArg("is",0,icon_s);
     }
 #else
     auto position = canvasProjection->computeCanvasPoint(lastPosition);
