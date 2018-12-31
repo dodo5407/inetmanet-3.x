@@ -160,20 +160,37 @@ void MobilityBase::updateVisualRepresentation()
 #ifdef WITH_VISUALIZERS
     if (hasGUI() && visualRepresentation != nullptr) {
         inet::visualizer::MobilityCanvasVisualizer::setPosition(visualRepresentation, canvasProjection->computeCanvasPoint(lastPosition));
-        int Z_step = constraintAreaMax.z / 5;
-        char icon_s[3];
-        if(lastPosition.z > Z_step*4){
-                snprintf(icon_s, sizeof(icon_s), "%s", "vl");
-        }else if (lastPosition.z > Z_step*3){
-                snprintf(icon_s, sizeof(icon_s), "%s", "l");
-        }else if (lastPosition.z > Z_step*2){
-                snprintf(icon_s, sizeof(icon_s), "%s", "n");
-        }else if (lastPosition.z > Z_step){
-                snprintf(icon_s, sizeof(icon_s), "%s", "s");
-        }else{
-                snprintf(icon_s, sizeof(icon_s), "%s", "vs");
+        bool has_size = 0;
+        const char *icon_name = visualRepresentation->getDisplayString().getTagArg("i",0);
+        auto  icon_name_size = strlen(icon_name);
+        if ((strchr(icon_name+icon_name_size-2,'_')!=NULL) || (strchr(icon_name+icon_name_size-3,'_')!=NULL)){
+            switch(icon_name[icon_name_size-1]) {
+                case 'l':
+                case 'n':
+                case 's':
+                    has_size = 1;
+                    break;
+            }
+            if((strstr(icon_name+icon_name_size-2,"vl")!=nullptr) || (strstr(icon_name+icon_name_size-2,"vs")!=nullptr)) {
+                has_size = 1;
+            }
         }
-        visualRepresentation->getDisplayString().setTagArg("is",0,icon_s);
+        if(!has_size){
+            int Z_step = constraintAreaMax.z / 5;
+            char icon_s[3];
+            if(lastPosition.z > Z_step*4){
+                snprintf(icon_s, sizeof(icon_s), "%s", "vl");
+            }else if (lastPosition.z > Z_step*3){
+                snprintf(icon_s, sizeof(icon_s), "%s", "l");
+            }else if (lastPosition.z > Z_step*2){
+                snprintf(icon_s, sizeof(icon_s), "%s", "n");
+            }else if (lastPosition.z > Z_step){
+                snprintf(icon_s, sizeof(icon_s), "%s", "s");
+            }else{
+                snprintf(icon_s, sizeof(icon_s), "%s", "vs");
+            }
+            visualRepresentation->getDisplayString().setTagArg("is",0,icon_s);
+        }
     }
 #else
     auto position = canvasProjection->computeCanvasPoint(lastPosition);
@@ -302,6 +319,12 @@ void MobilityBase::handleIfOutside(BorderPolicy policy, Coord& targetPosition, C
         default:
             throw cRuntimeError("Invalid outside policy=%d in module", policy, getFullPath().c_str());
     }
+
+    //auto canvas = visualRepresentation->getParentModule()->getCanvas();
+    //cFigure *figure = canvas->getFigureByPath(canvas->getFullName());
+    //cImageFigure *imageFigure = check_and_cast<cImageFigure *>(figure);
+
+    //imageFigure->setTransform(cFigure::Transform().rotate(angle));
 }
 
 } // namespace inet
