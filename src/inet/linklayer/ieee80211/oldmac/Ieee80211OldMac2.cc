@@ -770,7 +770,7 @@ void Ieee80211OldMac2::scheduleSIFSPeriod(Ieee80211Frame *frame)
     scheduleAt(simTime() + getSIFS(), endSIFS);
 }
 
-//XXXvoid Ieee80211OldMac2::checkInternalColision()
+//XXXvoid Ieee80211OldMac::checkInternalColision()
 //{
 //  EV_DEBUG << "We obtain endAIFS, so we have to check if there
 //}
@@ -794,10 +794,10 @@ void Ieee80211OldMac2::scheduleDataTimeoutPeriod(Ieee80211DataOrMgmtFrame *frame
             double slot = SIMTIME_DBL(modType->getSlotTime());
             double sifs = SIMTIME_DBL(modType->getSifsTime());
             double PHY_RX_START = SIMTIME_DBL(modType->getPhyRxStartDelay());
-            tim = duration + slot + PHY_RX_START;
+            tim = duration + slot + sifs+ PHY_RX_START;
         }
         else
-            tim = computeFrameDuration(frameToSend) + SIMTIME_DBL( getSlotTime())  + MAX_PROPAGATION_DELAY * 2;
+            tim = computeFrameDuration(frameToSend) + SIMTIME_DBL( getSlotTime()) +SIMTIME_DBL( getSIFS()) + MAX_PROPAGATION_DELAY * 2;
         EV_DEBUG << " time out=" << tim*1e6 << "us" << endl;
         scheduleAt(simTime() + tim, endTimeout);
     }
@@ -1102,8 +1102,8 @@ bool Ieee80211OldMac2::isForUs(Ieee80211Frame *frame)
 bool Ieee80211OldMac2::isSentByUs(Ieee80211Frame *frame)
 {
     if (dynamic_cast<Ieee80211DataOrMgmtFrame *>(frame)) {
-        //EV_DEBUG << "ad3 "<<((Ieee80211DataOrMgmtFrame *)frame)->getAddress3();
-        //EV_DEBUG << "myad "<<address<<endl;
+        // EV_DEBUG << "ad3 "<<((Ieee80211DataOrMgmtFrame *)frame)->getAddress3();
+        // EV_DEBUG << "myad "<<address<<endl;
         if (((Ieee80211DataOrMgmtFrame *)frame)->getAddress3() == address) //received frame sent by us
             return 1;
     }
@@ -1738,4 +1738,5 @@ void Ieee80211OldMac2::configureRadioMode(IRadio::RadioMode radioMode)
 } // namespace ieee80211
 
 } // namespace inet
+
 

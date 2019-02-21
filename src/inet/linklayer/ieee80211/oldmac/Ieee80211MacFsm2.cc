@@ -88,6 +88,7 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
             FSMA_No_Event_Transition(Immediate - Data - Ready,
                     !transmissionQueuesEmpty(),
                     DEFER,
+                    if (frame == nullptr) frame = getCurrentTransmission();
                     );
             FSMA_Event_Transition(Receive,
                     isLowerMessage(msg),
@@ -99,10 +100,15 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
             FSMA_Event_Transition(Wait - AIFS,
                     isMediumStateChange(msg) && isMediumFree(),
                     TRANSMIT,
-                    ;
+                    if (frame == nullptr) frame = getCurrentTransmission();
                     );
+            //FSMA_No_Event_Transition(Immediate - Wait - AIFS,
+            //        isMediumFree() || (!isBackoffPending()),
+            //        TRANSMIT,
+            //        ;
+            //        );
             FSMA_No_Event_Transition(Immediate - Wait - AIFS,
-                    isMediumFree() || (!isBackoffPending()),
+                    isMediumFree() && !(radio-> getTransmissionState() == IRadio::TRANSMISSION_STATE_TRANSMITTING),
                     TRANSMIT,
                     ;
                     );
@@ -115,9 +121,10 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
         FSMA_State(TRANSMIT) {
             FSMA_No_Event_Transition(Immediate - Transmit - Multicast,
                     isMulticast(getCurrentTransmission()),
-                    WAITMULTICAST,
+                    WAITSIFS,
                     sendMulticastFrame(getCurrentTransmission());
                     oldcurrentAC = currentAC;
+                    numSentMulticast++;
                     );
             FSMA_No_Event_Transition(Immediate - Transmit - Data,
                     !isMulticast(getCurrentTransmission()),
@@ -131,50 +138,17 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
                     RECEIVE,
                     );
         }
-        // wait until multicast is sent
-        FSMA_State(WAITMULTICAST)
-        {
-            FSMA_Enter(scheduleMulticastTimeoutPeriod(getCurrentTransmission()));
-            /*
-                        FSMA_Event_Transition(Transmit-Multicast,
-                                              msg == endTimeout,
-                                              IDLE,
-                            currentAC=oldcurrentAC;
-                            finishCurrentTransmission();
-                            numSentMulticast++;
-                        );
-            */
-            ///changed
-            FSMA_Event_Transition(Transmit-Multicast,
-                                  msg == endTimeout,
-                                  WAITSIFS,
-                                  currentAC = oldcurrentAC;
-                                  fr = getCurrentTransmission();
-                                  numBits += fr->getBitLength();
-                                  bits() += fr->getBitLength();
-                                  finishCurrentTransmission();
-                                  numSentMulticast++;
-                                 );
-        }
         FSMA_State(WAITSIFS)
         {
             FSMA_Enter(scheduleSIFSPeriod(frame));
             FSMA_Event_Transition(Transmit-Data-TXOP,
-                    msg == endSIFS && getFrameReceivedBeforeSIFS()->getType() == ST_DATA,
+                    msg == endSIFS && ((Ieee80211TwoAddressFrame *)getFrameReceivedBeforeSIFS())->getTransmitterAddress() == address && getFrameReceivedBeforeSIFS()->getType() == ST_DATA,
                     IDLE,
-                    sendNotification(NF_TX_ACKED);// added by aaq
                     if (retryCounter() == 0) numSentWithoutRetry()++;
                     numSent()++;
                     fr = getCurrentTransmission();
                     numBits += fr->getBitLength();
                     bits() += fr->getBitLength();
-                    macDelay()->record(simTime() - fr->getMACArrive());
-                    if (maxJitter() == SIMTIME_ZERO || maxJitter() < (simTime() - fr->getMACArrive()))
-                     maxJitter() = simTime() - fr->getMACArrive();
-                    if (minJitter() == SIMTIME_ZERO || minJitter() > (simTime() - fr->getMACArrive()))
-                     minJitter() = simTime() - fr->getMACArrive();
-                    EV_DEBUG << "record macDelay AC" << currentAC << " value " << simTime() - fr->getMACArrive() <<endl;
-                    numSentTXOP++;
                     cancelTimeoutPeriod();
                     finishCurrentTransmission();
                     );
@@ -234,3 +208,4 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
 }
 
 }
+
