@@ -53,7 +53,7 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
     if (!initFsm(msg, receptionError, frame))
         return;
 
-    int frameType = frame ? frame->getType() : -1;
+    //int frameType = frame ? frame->getType() : -1;
 
     // TODO: fix bug according to the message: [omnetpp] A possible bug in the Ieee80211's FSM.
     FSMA_Switch(fsm) {
@@ -151,11 +151,15 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
                     bits() += fr->getBitLength();
                     cancelTimeoutPeriod();
                     finishCurrentTransmission();
+                    delete getFrameReceivedBeforeSIFS();
+                    endSIFS->setContextPointer(nullptr);
                     );
             FSMA_Event_Transition(Transmit,
                     msg == endSIFS && isDataOrMgmtFrame(getFrameReceivedBeforeSIFS()),
                     IDLE,
                     finishReception();
+                    delete getFrameReceivedBeforeSIFS();
+                    endSIFS->setContextPointer(nullptr);
                     );
         }
         // this is not a real state

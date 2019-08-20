@@ -112,7 +112,6 @@ Ieee80211OldMac2::~Ieee80211OldMac2()
         cancelAndDelete(endSIFS);
     }
     cancelAndDelete(endTimeout);
-    cancelAndDelete(endReserve);
     cancelAndDelete(mediumStateChange);
     for (unsigned int i = 0; i < edcCAF.size(); i++) {
         while (!transmissionQueue(i)->empty()) {
@@ -202,6 +201,7 @@ void Ieee80211OldMac2::initialize(int stage)
             ST = dataFrameMode->getSlotTime();
 
         EV_DEBUG << " slotTime=" << getSlotTime() * 1e6 << "us";
+        EV_DEBUG << " sifsTime=" << getSIFS() * 1e6 << "us";
 
 
         EV_DEBUG <<" basicBitrate="<<basicBitrate/1e6<<"Mb ";
@@ -213,25 +213,11 @@ void Ieee80211OldMac2::initialize(int stage)
         EV_DEBUG << " basicBitrate=" << basicBitrate / 1e6 << "Mb ";
         EV_DEBUG << " bitrate=" << bitrate / 1e6 << "Mb IDLE=" << IDLE << " RECEIVE=" << RECEIVE << endl;
 
-        const char *addressString = par("address");
-        address = isInterfaceRegistered();
-        if (address.isUnspecified()) {
-            if (!strcmp(addressString, "auto")) {
-                // assign automatic address
-                address = MACAddress::generateAutoAddress();
-                // change module parameter from "auto" to concrete address
-                par("address").setStringValue(address.str().c_str());
-            }
-            else
-                address.setAddress(addressString);
-        }
-
 
         // initialize self messages
         endSIFS = new cMessage("SIFS");
 
         endTimeout = new cMessage("Timeout");
-        endReserve = new cMessage("Reserve");
         mediumStateChange = new cMessage("MediumStateChange");
 
         // state variables
@@ -243,7 +229,6 @@ void Ieee80211OldMac2::initialize(int stage)
         oldcurrentAC = 0;
         lastReceiveFailed = false;
 
-        nav = false;
         last = 0;
 
         contI = 0;
@@ -289,6 +274,19 @@ void Ieee80211OldMac2::initialize(int stage)
     }
     else if (stage == INITSTAGE_LINK_LAYER) {
 
+        const char *addressString = par("address");
+        address = isInterfaceRegistered();
+        if (address.isUnspecified()) {
+            if (!strcmp(addressString, "auto")) {
+                // assign automatic address
+                address = MACAddress::generateAutoAddress();
+                // change module parameter from "auto" to concrete address
+                par("address").setStringValue(address.str().c_str());
+            }
+            else
+                address.setAddress(addressString);
+        }
+
         if (isOperational)
             radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
         // interface
@@ -303,7 +301,6 @@ void Ieee80211OldMac2::initWatches()
 // initialize watches
      WATCH(fsm);
 
-     WATCH(nav);
      WATCH(numBits);
      WATCH(numReceived);
      WATCH(numSentMulticast);
@@ -437,9 +434,6 @@ void Ieee80211OldMac2::handleSelfMessage(cMessage *msg)
     }
 
     EV_DEBUG << "received self message: " << msg << "(kind: " << msg->getKind() << ")" << endl;
-
-    if (msg == endReserve)
-        nav = false;
 
     handleWithFSM(msg);
 }
@@ -826,26 +820,10 @@ void Ieee80211OldMac2::scheduleReservePeriod(Ieee80211Frame *frame)
 
     // see spec. 7.1.3.2
     if (!isForUs(frame) && reserve != 0 && reserve < 32768) {
-        if (endReserve->isScheduled()) {
-            simtime_t oldReserve = endReserve->getArrivalTime() - simTime();
-
-            if (oldReserve > reserve)
-                return;
-
-            reserve = std::max(reserve, oldReserve);
-            cancelEvent(endReserve);
-        }
-        else if (radio->getReceptionState() == IRadio::RECEPTION_STATE_IDLE) {
+        if (radio->getReceptionState() == IRadio::RECEPTION_STATE_IDLE) {
             // NAV: the channel just became virtually busy according to the spec
             scheduleAt(simTime(), mediumStateChange);
         }
-
-        EV_DEBUG << "scheduling reserve period for: " << reserve << endl;
-
-        ASSERT(reserve > 0);
-
-        nav = true;
-        scheduleAt(simTime() + reserve, endReserve);
     }
 }
 
@@ -1075,17 +1053,17 @@ void Ieee80211OldMac2::resetStateVariables()
 
 bool Ieee80211OldMac2::isMediumStateChange(cMessage *msg)
 {
-    return msg == mediumStateChange || (msg == endReserve && radio->getReceptionState() == IRadio::RECEPTION_STATE_IDLE);
+    return msg == mediumStateChange;
 }
 
 bool Ieee80211OldMac2::isMediumFree()
 {
-    return !endReserve->isScheduled() && radio->getReceptionState() == IRadio::RECEPTION_STATE_IDLE;
+    return  radio->getReceptionState() == IRadio::RECEPTION_STATE_IDLE;
 }
 
 bool Ieee80211OldMac2::isMediumRecv()
 {
-    return !endReserve->isScheduled() && radio->getReceptionState() == IRadio::RECEPTION_STATE_RECEIVING;
+    return  radio->getReceptionState() == IRadio::RECEPTION_STATE_RECEIVING;
 }
 
 
@@ -1178,7 +1156,7 @@ void Ieee80211OldMac2::logState()
     EV_TRACE << ", radioMode = " << radio->getRadioMode()
              << ", receptionState = " << radio->getReceptionState()
              << ", transmissionState = " << radio->getTransmissionState()
-             << ", nav = " << nav << ", txop is " << txop << "\n";
+             << ", txop is " << txop << "\n";
     EV_TRACE << "#queue size 0.." << numCategs << " =";
     for (int i = 0; i < numCategs; i++)
         EV_TRACE << " " << transmissionQueue(i)->size();
@@ -1713,7 +1691,6 @@ void Ieee80211OldMac2::handleNodeCrash()
 {
     cancelEvent(endSIFS);
     cancelEvent(endTimeout);
-    cancelEvent(endReserve);
     cancelEvent(mediumStateChange);
     for (unsigned int i = 0; i < edcCAF.size(); i++) {
         while (!transmissionQueue(i)->empty()) {

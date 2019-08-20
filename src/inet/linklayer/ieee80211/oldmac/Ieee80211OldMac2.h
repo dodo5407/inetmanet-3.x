@@ -346,9 +346,6 @@ class INET_API Ieee80211OldMac2 : public MACProtocolBase
      */
     bool lastReceiveFailed = false;
 
-    /** True during network allocation period. This flag is present to be able to watch this state. */
-    bool nav = false;
-
     /** True if we are in txop bursting packets. */
     bool txop = false;
 
@@ -402,9 +399,6 @@ class INET_API Ieee80211OldMac2 : public MACProtocolBase
 
     /** Timeout after the transmission of an RTS, a CTS, or a DATA frame */
     cMessage *endTimeout = nullptr;
-
-    /** End of medium reserve period (NAV) when two other nodes were communicating on the channel */
-    cMessage *endReserve = nullptr;
 
     /** Radio state change self message. Currently this is optimized away and sent directly */
     cMessage *mediumStateChange = nullptr;
@@ -494,7 +488,7 @@ class INET_API Ieee80211OldMac2 : public MACProtocolBase
      * @brief Calculate various timings based on transmission rate and physical layer charactersitics.
      */
     //@{
-    virtual simtime_t getSIFS();
+    //virtual simtime_t getSIFS();
     virtual simtime_t getSlotTime();
     virtual double controlFrameTxTime(int bits);
     //@}
@@ -585,9 +579,6 @@ class INET_API Ieee80211OldMac2 : public MACProtocolBase
     /** @brief Tells if the medium is receiving something. */
     virtual bool isMediumRecv();
 
-    /** @brief Tells if the medium is free according to the physical and virtual carrier sense algorithm. */
-    virtual bool isMediumFree();
-
     /** @brief Returns true if message is a multicast message */
     virtual bool isMulticast(Ieee80211Frame *msg);
 
@@ -676,6 +667,9 @@ class INET_API Ieee80211OldMac2 : public MACProtocolBase
   public:
     virtual State getState() { return static_cast<State>(fsm.getState()); }
     virtual unsigned int getQueueSize() { return getTotalQueueLength(); }
+    /** @brief Tells if the medium is free according to the physical and virtual carrier sense algorithm. */
+    virtual bool isMediumFree();
+    virtual simtime_t getSIFS();
 };
 
 } // namespace ieee80211

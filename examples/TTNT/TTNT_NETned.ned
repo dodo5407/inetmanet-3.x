@@ -17,7 +17,7 @@ package inet.examples.TTNT;
 
 // numOfHosts: 5
 import inet.networklayer.configurator.ipv4.IPv4NetworkConfigurator;
-import inet.node.inet.AdhocHost;
+import inet.node.inet.INetworkNode;
 //import inet.physicallayer.ieee80211.packetlevel.Ieee80211ScalarRadioMedium;
 import inet.physicallayer.contract.packetlevel.IRadioMedium;
 import inet.visualizer.integrated.IntegratedVisualizer;
@@ -29,12 +29,13 @@ network TTNT_net
         int numHosts;
         int numFixHosts;
         string radioMediumType;
+        string hosttype = default("AdhocHost");
     submodules:
-        fixhost[numFixHosts]: AdhocHost {
+        fixhost[numFixHosts]: <hosttype> like INetworkNode {
             parameters:
                 @display("i=device/plane;r=,,#707070");
         }
-        host[numHosts]: AdhocHost {
+        host[numHosts]: <hosttype> like INetworkNode {
             parameters:
                 @display("i=device/plane;r=,,#707070");
         }
