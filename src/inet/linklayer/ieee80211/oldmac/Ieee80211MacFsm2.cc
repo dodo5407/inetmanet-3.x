@@ -88,7 +88,7 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
             FSMA_No_Event_Transition(Immediate - Data - Ready,
                     !transmissionQueuesEmpty(),
                     DEFER,
-                    if (frame == nullptr) frame = getCurrentTransmission();
+                    frame = getCurrentTransmission();
                     );
             FSMA_Event_Transition(Receive,
                     isLowerMessage(msg),
@@ -99,8 +99,8 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
             FSMA_Enter(sendDownPendingRadioConfigMsg());
             FSMA_Event_Transition(Wait - AIFS,
                     isMediumStateChange(msg) && isMediumFree(),
-                    TRANSMIT,
-                    if (frame == nullptr) frame = getCurrentTransmission();
+                    WAITSIFS,
+                    frame = getCurrentTransmission();
                     );
             //FSMA_No_Event_Transition(Immediate - Wait - AIFS,
             //        isMediumFree() || (!isBackoffPending()),
@@ -108,8 +108,8 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
             //        ;
             //        );
             FSMA_No_Event_Transition(Immediate - Wait - AIFS,
-                    isMediumFree() && !(radio-> getTransmissionState() == IRadio::TRANSMISSION_STATE_TRANSMITTING),
-                    TRANSMIT,
+                    isMediumFree() && lastEndSIFSTime != simTime(),
+                    WAITSIFS,
                     ;
                     );
             FSMA_Event_Transition(Receive,
@@ -121,16 +121,26 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
         FSMA_State(TRANSMIT) {
             FSMA_No_Event_Transition(Immediate - Transmit - Multicast,
                     isMulticast(getCurrentTransmission()),
-                    WAITSIFS,
+                    IDLE,
                     sendMulticastFrame(getCurrentTransmission());
                     oldcurrentAC = currentAC;
                     numSentMulticast++;
+                    fr = getCurrentTransmission();
+                    numBits += fr->getBitLength();
+                    bits() += fr->getBitLength();
+                    finishCurrentTransmission();
                     );
             FSMA_No_Event_Transition(Immediate - Transmit - Data,
                     !isMulticast(getCurrentTransmission()),
-                    WAITSIFS,
+                    IDLE,
                     sendDataFrame(getCurrentTransmission());
                     oldcurrentAC = currentAC;
+                    if (retryCounter() == 0) numSentWithoutRetry()++;
+                    numSent()++;
+                    fr = getCurrentTransmission();
+                    numBits += fr->getBitLength();
+                    bits() += fr->getBitLength();
+                    finishCurrentTransmission();
                     );
             // radio state changes before we actually get the message, so this must be here
             FSMA_Event_Transition(Receive,
@@ -143,23 +153,10 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
             FSMA_Enter(scheduleSIFSPeriod(frame));
             FSMA_Event_Transition(Transmit-Data-TXOP,
                     msg == endSIFS && ((Ieee80211TwoAddressFrame *)getFrameReceivedBeforeSIFS())->getTransmitterAddress() == address && getFrameReceivedBeforeSIFS()->getType() == ST_DATA,
-                    IDLE,
-                    if (retryCounter() == 0) numSentWithoutRetry()++;
-                    numSent()++;
-                    fr = getCurrentTransmission();
-                    numBits += fr->getBitLength();
-                    bits() += fr->getBitLength();
-                    cancelTimeoutPeriod();
-                    finishCurrentTransmission();
+                    TRANSMIT,
                     delete getFrameReceivedBeforeSIFS();
                     endSIFS->setContextPointer(nullptr);
-                    );
-            FSMA_Event_Transition(Transmit,
-                    msg == endSIFS && isDataOrMgmtFrame(getFrameReceivedBeforeSIFS()),
-                    IDLE,
-                    finishReception();
-                    delete getFrameReceivedBeforeSIFS();
-                    endSIFS->setContextPointer(nullptr);
+                    lastEndSIFSTime = simTime();
                     );
         }
         // this is not a real state
@@ -181,15 +178,10 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
                     );
             FSMA_No_Event_Transition(Immediate-Receive-Data,
                     isLowerMessage(msg) && isForUs(frame) && isDataOrMgmtFrame(frame),
-                    WAITSIFS,
+                    IDLE,
                     sendUp(frame);
                     numReceived++;
                     );
-            FSMA_No_Event_Transition(Immediate-Receive-Other-backtobackoff,
-                    isLowerMessage(msg) && isBackoffPending(), //(backoff[0] || backoff[1] || backoff[2] || backoff[3]),
-                    DEFER,
-                    );
-
             FSMA_No_Event_Transition(Immediate-Promiscuous-Data,
                     isLowerMessage(msg) && !isForUs(frame) && isDataOrMgmtFrame(frame),
                     IDLE,

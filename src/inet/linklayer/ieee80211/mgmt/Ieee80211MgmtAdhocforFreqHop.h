@@ -42,6 +42,7 @@ class INET_API Ieee80211MgmtAdhocforFreqHop : public Ieee80211MgmtBase
 
   protected:
     int numMac;
+    int frameId = 0;
 
     simtime_t fragmentTimeoutTime;
 
@@ -49,6 +50,8 @@ class INET_API Ieee80211MgmtAdhocforFreqHop : public Ieee80211MgmtBase
     Ieee80211FragBuf fragbuf;
 
     Ieee80211PacketList sendToChannelQueue;
+    simtime_t lastCheckChannelFreeTime = SIMTIME_ZERO;
+    bool *channelBusyState;
 
     Ieee80211OldMac2 *macModule = nullptr;
     cMessage *endSIFS;

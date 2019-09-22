@@ -18,7 +18,6 @@
 #include "inet/linklayer/ieee80211/mgmt/Ieee80211MgmtAdhocforFreqHop.h"
 #include "inet/linklayer/common/Ieee802Ctrl.h"
 #include "inet/physicallayer/ieee80211/packetlevel/Ieee80211ControlInfo_m.h"
-#include "inet/networklayer/ipv4/IPv4Datagram.h"
 
 namespace inet {
 
@@ -38,6 +37,9 @@ void Ieee80211MgmtAdhocforFreqHop::initialize(int stage)
     }
 
     numMac = gateSize("macOut");
+    if (stage == INITSTAGE_LINK_LAYER)
+        channelBusyState = new bool[numMac];
+
     if ((numMac > 1)&&(stage == INITSTAGE_LINK_LAYER_2)) {
         const char *bandName = getModuleByPath("^.radio[0]")->par("bandName");
         int numChannels = Ieee80211CompliantBands::getBand(bandName)->getNumChannels();
@@ -129,6 +131,8 @@ Ieee80211MgmtAdhocforFreqHop::~Ieee80211MgmtAdhocforFreqHop()
         delete temp->first;
         delete temp;
     }
+
+    delete[] channelBusyState;
 }
 
 void Ieee80211MgmtAdhocforFreqHop::changeChannel(int channelNum, int gateindex)
@@ -166,10 +170,7 @@ Ieee80211DataFrameWithSNAP *Ieee80211MgmtAdhocforFreqHop::encapsulate(cPacket *m
     Ieee802Ctrl *ctrl = check_and_cast<Ieee802Ctrl *>(msg->removeControlInfo());
     frame->setReceiverAddress(ctrl->getDest());
     frame->setEtherType(ctrl->getEtherType());
-    if (dynamic_cast<IPv4Datagram *>(msg))
-        frame->setIdentification((dynamic_cast<IPv4Datagram *>(msg))-> getIdentification());
-    else
-        frame->setIdentification((dynamic_cast<cMessage *>(msg))->getCreationTime().raw());
+    frame->setIdentification(frameId++);
     int up = ctrl->getUserPriority();
     if (up >= 0) {
         // make it a QoS frame, and set TID
@@ -347,21 +348,31 @@ void Ieee80211MgmtAdhocforFreqHop::sendFromFreeChannel(cPacket *dataframe, int f
 int Ieee80211MgmtAdhocforFreqHop::checkFreeChannel(void)
 {
     bool isChannelFree = false;
-    bool channelBusyState[numMac] = {false};
     int gateindex = -1;
+    if (lastCheckChannelFreeTime != simTime())
+    {
+        for (int i = 0; i<numMac; i++)  channelBusyState[i] = false ;
+    }
+    lastCheckChannelFreeTime = simTime();
+
     while(!isChannelFree)
     {
+        bool allChannelBusy = true;
+        for (int i=0; i<numMac; i++) allChannelBusy = allChannelBusy && channelBusyState[i];
+        if(allChannelBusy)
+            return -1;
+
         gateindex=(int)intrand(numMac);
+        if (channelBusyState[gateindex] == true)
+            continue;
+
         std::string modulename = std::string("^.mac[") + std::to_string(gateindex) + "]";
         macModule = check_and_cast<Ieee80211OldMac2 *>(getModuleByPath(modulename.c_str()));
         isChannelFree = macModule->isMediumFree();
         channelBusyState[gateindex] = isChannelFree ? false : true;
 
-        bool allChannelBusy = true;
-        for(int i=0; i<numMac; i++) allChannelBusy = allChannelBusy && channelBusyState[i];
-        if(allChannelBusy)
-            return -1;
     }
+    channelBusyState[gateindex] = true;
 
     return gateindex;
 }

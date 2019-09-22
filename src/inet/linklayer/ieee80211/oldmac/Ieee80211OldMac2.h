@@ -346,6 +346,8 @@ class INET_API Ieee80211OldMac2 : public MACProtocolBase
      */
     bool lastReceiveFailed = false;
 
+    simtime_t lastEndSIFSTime = 0;
+
     /** True if we are in txop bursting packets. */
     bool txop = false;
 

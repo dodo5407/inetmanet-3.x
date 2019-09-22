@@ -158,8 +158,10 @@ void Ieee80211FragBuf::purgeStaleFragments(simtime_t lastupdate)
         // if too old, remove it
         DatagramBuffer& buf = i->second;
         if(buf.lastupdate < lastupdate){
-            if(buf.datagram)
+            if(buf.datagram) {
+                EV_DEBUG << "datagram fragment timed out in reassembly buffer: " << buf.datagram->getFullName() << ". Drop!\n";
                 delete buf.datagram;
+            }
 
             // delete
             auto oldi = i++;
