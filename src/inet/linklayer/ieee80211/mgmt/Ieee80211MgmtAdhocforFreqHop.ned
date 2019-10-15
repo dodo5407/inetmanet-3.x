@@ -35,8 +35,10 @@ simple Ieee80211MgmtAdhocforFreqHop like IIeee80211MgmtforFreqHop
 {
     parameters:
         string macModule;               // The path to the MAC module
-        int frameMTU=default(1500);
+        int frameMTU = default(1500);
+        int maxMultiOutChannel = default(1);
         double fragmentTimeoutTime @unit("s") = default(60s);
+        @signal[macTrasmissionFinished](type=Ieee80211DataFrameWithSNAP?);
         @display("i=block/cogwheel");
     gates:
         input upperLayerIn;

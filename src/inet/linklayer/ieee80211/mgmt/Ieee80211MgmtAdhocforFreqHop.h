@@ -24,6 +24,7 @@
 #include "inet/linklayer/ieee80211/mac/Ieee80211Frame_m.h"
 #include "inet/linklayer/ieee80211/mgmt/Ieee80211FragBuf.h"
 #include "inet/linklayer/ieee80211/oldmac/Ieee80211OldMac2.h"
+#include "inet/physicallayer/ieee80211/packetlevel/Ieee80211Radio.h"
 
 namespace inet {
 
@@ -35,25 +36,32 @@ namespace ieee80211 {
  *
  * @author Andras Varga
  */
-class INET_API Ieee80211MgmtAdhocforFreqHop : public Ieee80211MgmtBase
+class INET_API Ieee80211MgmtAdhocforFreqHop : public Ieee80211MgmtBase, public cListener
 {
+
+  public:
+    static simsignal_t macTrasmissionFinishedSignal;
+
+  protected:
+
     typedef std::pair<cPacket *, int> PacketFragPair;
     typedef std::list<PacketFragPair *> Ieee80211PacketList;
 
-  protected:
     int numMac;
     int frameId = 0;
 
     simtime_t fragmentTimeoutTime;
-
     simtime_t lastCheckTime;
     Ieee80211FragBuf fragbuf;
 
-    Ieee80211PacketList sendToChannelQueue;
-    simtime_t lastCheckChannelFreeTime = SIMTIME_ZERO;
     bool *channelBusyState;
+    simtime_t lastCheckChannelFreeTime = SIMTIME_ZERO;
+    Ieee80211PacketList waitToSendQueue;
+    int numFrameInMac;
+    int maxMultiOutChannel;
 
     Ieee80211OldMac2 *macModule = nullptr;
+    Ieee80211Radio *radioModule = nullptr;
     cMessage *endSIFS;
 
   public:
@@ -73,6 +81,8 @@ class INET_API Ieee80211MgmtAdhocforFreqHop : public Ieee80211MgmtBase
 
     /** Implements abstract Ieee80211MgmtBase method */
     virtual void handleUpperMessage(cPacket *msg) override;
+
+    virtual void receiveSignal(cComponent *source, simsignal_t signalID, cObject *obj, cObject *details) override;
 
     /** Implements abstract Ieee80211MgmtBase method -- throws an error (no commands supported) */
     virtual void handleCommand(int msgkind, cObject *ctrl) override;

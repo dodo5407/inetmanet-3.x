@@ -23,20 +23,24 @@ namespace inet {
 
 namespace ieee80211 {
 
-using namespace physicallayer;
-
 Define_Module(Ieee80211MgmtAdhocforFreqHop);
+
+simsignal_t Ieee80211MgmtAdhocforFreqHop::macTrasmissionFinishedSignal = cComponent::registerSignal("macTrasmissionFinished");
 
 void Ieee80211MgmtAdhocforFreqHop::initialize(int stage)
 {
     Ieee80211MgmtBase::initialize(stage);
 
     if (stage == INITSTAGE_LOCAL) {
+        maxMultiOutChannel = par("maxMultiOutChannel");
         fragmentTimeoutTime = par("fragmentTimeoutTime");
         endSIFS = new cMessage("SIFS");
+        numFrameInMac = 0;
+        numMac = gateSize("macOut");
+
     }
 
-    numMac = gateSize("macOut");
+
     if (stage == INITSTAGE_LINK_LAYER)
         channelBusyState = new bool[numMac];
 
@@ -49,6 +53,13 @@ void Ieee80211MgmtAdhocforFreqHop::initialize(int stage)
         for(int index=0; index<numMac; index++){
             changeChannel(space*index, index);
         }
+
+        for(int gateindex=0; gateindex<numMac; gateindex++) {
+            std::string modulename = std::string("^.radio[") + std::to_string(gateindex) + "]";
+            radioModule = check_and_cast<Ieee80211Radio *>(getModuleByPath(modulename.c_str()));
+            radioModule->subscribe(macTrasmissionFinishedSignal,this);
+        }
+
     }
 }
 
@@ -59,7 +70,7 @@ void Ieee80211MgmtAdhocforFreqHop::handleMessage(cMessage *msg)
 
     if (msg->isSelfMessage()) {
         if (msg == endSIFS) {
-            if(sendToChannelQueue.empty()) {
+            if(waitToSendQueue.empty()) {
                 EV_WARN << " Ready send down to free channel, but sendqueue is empty!.\n";
                 cancelEvent(endSIFS);
                 return ;
@@ -67,26 +78,30 @@ void Ieee80211MgmtAdhocforFreqHop::handleMessage(cMessage *msg)
 
             int gateindex = checkFreeChannel();
             std::string modulename = std::string("^.mac[") + std::to_string(gateindex) + "]";
-            PacketFragPair *dataframePair = sendToChannelQueue.front();
-            std::string numFragString = (dataframePair->second == -1) ? std::string(".\n") : std::string("for ")+std::to_string(dataframePair->second)+" fragment.\n";
-            if (gateindex != -1) {
+            PacketFragPair *dataframePair = waitToSendQueue.front();
+            std::string numFragString = (dataframePair->second == -1) ? std::string(".\n") : std::string("for no.")+std::to_string(dataframePair->second)+" fragment.\n";
+            if (gateindex >= 0) {
+                numFrameInMac++;
                 EV_DETAIL << "The Channel of " << modulename.substr(2,6) << " is free "
                                         << numFragString;
                 send(dataframePair->first, "macOut", gateindex);
-                sendToChannelQueue.pop_front();
-            }else {
+                waitToSendQueue.pop_front();
+            }else if(gateindex == -1){
                 EV_DETAIL << "All Channel is busy "
                                         << numFragString;
+            }else {
+                /*EV_DETAIL << "Number of frames in mac over the max multi-out channels "
+                                        << numFragString;*/
             }
 
-            if(!sendToChannelQueue.empty() && !endSIFS->isScheduled()){
+            if(!waitToSendQueue.empty() && !endSIFS->isScheduled()){
                 scheduleAt(simTime()+macModule->getSIFS(),endSIFS);
             }
         }
         else {
-        // process timers
-        EV << "Timer expired: " << msg << "\n";
-        handleTimer(msg);
+            // process timers
+            EV << "Timer expired: " << msg << "\n";
+            handleTimer(msg);
         }
     }
     else if (msg->arrivedOn("macIn")) {
@@ -112,6 +127,37 @@ void Ieee80211MgmtAdhocforFreqHop::handleMessage(cMessage *msg)
     }
 }
 
+void Ieee80211MgmtAdhocforFreqHop::receiveSignal(cComponent *source, simsignal_t signalID, cObject *obj, cObject *details)
+{
+    Enter_Method_Silent();
+    if (signalID == macTrasmissionFinishedSignal) {
+        numFrameInMac--;
+        if(waitToSendQueue.empty()) {
+            EV_WARN << " Ready send down to free channel, but sendqueue is empty!.\n";
+            cancelEvent(endSIFS);
+            return ;
+        }
+
+        int gateindex = checkFreeChannel();
+        std::string modulename = std::string("^.mac[") + std::to_string(gateindex) + "]";
+        PacketFragPair *dataframePair = waitToSendQueue.front();
+        std::string numFragString = (dataframePair->second == -1) ? std::string(".\n") : std::string("for no.")+std::to_string(dataframePair->second)+" fragment.\n";
+        if (gateindex >= 0) {
+            numFrameInMac++;
+            EV_DETAIL << "The Channel of " << modulename.substr(2,6) << " is free "
+                        << numFragString;
+            send(dataframePair->first, "macOut", gateindex);
+            waitToSendQueue.pop_front();
+        }else if(gateindex == -1){
+            EV_DETAIL << "All Channel is busy "
+                        << numFragString;
+        }else {
+            /*EV_DETAIL << "Number of frames in mac over the max multi-out channels "
+                        << numFragString;*/
+        }
+    }
+}
+
 Ieee80211MgmtAdhocforFreqHop::Ieee80211MgmtAdhocforFreqHop()
 {
 }
@@ -125,9 +171,13 @@ Ieee80211MgmtAdhocforFreqHop::~Ieee80211MgmtAdhocforFreqHop()
         cancelAndDelete(endSIFS);
     }
 
-    while(!sendToChannelQueue.empty()) {
-        PacketFragPair *temp = dynamic_cast<PacketFragPair *>(sendToChannelQueue.front());
-        sendToChannelQueue.pop_front();
+    if (radioModule != nullptr) {
+        radioModule->unsubscribe(IRadioMedium::transmissionEndedSignal, this);
+    }
+
+    while(!waitToSendQueue.empty()) {
+        PacketFragPair *temp = dynamic_cast<PacketFragPair *>(waitToSendQueue.front());
+        waitToSendQueue.pop_front();
         delete temp->first;
         delete temp;
     }
@@ -314,13 +364,21 @@ void Ieee80211MgmtAdhocforFreqHop::sendFromFreeChannel(cPacket *dataframe)
 {
     int gateindex = checkFreeChannel();
     std::string modulename = std::string("^.mac[") + std::to_string(gateindex) + "]";
-    if(gateindex == -1)
+    if(gateindex < 0)
     {
         PacketFragPair *dataframePair = new PacketFragPair(dataframe, -1);
-        sendToChannelQueue.push_back(dataframePair);
+        waitToSendQueue.push_back(dataframePair);
+        if (gateindex == -1)
+        {
+            EV_DETAIL << "All Channel is busy.\n";
+        }else
+        {
+            //EV_DETAIL << "Number of frames in mac over the max multi-out channels.\n";
+        }
         if(!endSIFS->isScheduled())
             scheduleAt(simTime() + macModule->getSIFS(), endSIFS);
     }else {
+        numFrameInMac++;
         EV_DETAIL << "The Channel of " << modulename.substr(2,6) << " is free.\n";
         send(dataframe, "macOut", gateindex);
     }
@@ -330,15 +388,23 @@ void Ieee80211MgmtAdhocforFreqHop::sendFromFreeChannel(cPacket *dataframe, int f
 {
     int gateindex = checkFreeChannel();
     std::string modulename = std::string("^.mac[") + std::to_string(gateindex) + "]";
-    if(gateindex == -1)
+    if(gateindex < 0)
     {
         PacketFragPair *dataframePair = new PacketFragPair(dataframe, fragnum);
-        sendToChannelQueue.push_back(dataframePair);
-        EV_DETAIL << "All Channel is busy "
-                                << "for " << fragnum << " fragment.\n";
+        waitToSendQueue.push_back(dataframePair);
+        if (gateindex == -1)
+        {
+            EV_DETAIL << "All Channel is busy "
+                    << "for no." << fragnum << " fragment.\n";
+        }else
+        {
+            /*EV_DETAIL << "Number of frames in mac over the max multi-out channels"
+                                << "for no." << fragnum << " fragment.\n";*/
+        }
         if(!endSIFS->isScheduled())
             scheduleAt(simTime() + macModule->getSIFS(), endSIFS);
     }else {
+        numFrameInMac++;
         EV_DETAIL << "The Channel of " << modulename.substr(2,6) << " is free "
                         << "for " << fragnum << " fragment.\n";
         send(dataframe, "macOut", gateindex);
@@ -349,7 +415,7 @@ int Ieee80211MgmtAdhocforFreqHop::checkFreeChannel(void)
 {
     bool isChannelFree = false;
     int gateindex = -1;
-    if (lastCheckChannelFreeTime != simTime())
+    if (lastCheckChannelFreeTime != simTime()) //avoid send many frames to one channel at the same time
     {
         for (int i = 0; i<numMac; i++)  channelBusyState[i] = false ;
     }
@@ -361,15 +427,19 @@ int Ieee80211MgmtAdhocforFreqHop::checkFreeChannel(void)
         for (int i=0; i<numMac; i++) allChannelBusy = allChannelBusy && channelBusyState[i];
         if(allChannelBusy)
             return -1;
+        else if(numFrameInMac >= maxMultiOutChannel)
+            return -2;
+        else
+        {
+            gateindex=(int)intrand(numMac);
+            if (channelBusyState[gateindex] == true)
+                continue;
 
-        gateindex=(int)intrand(numMac);
-        if (channelBusyState[gateindex] == true)
-            continue;
-
-        std::string modulename = std::string("^.mac[") + std::to_string(gateindex) + "]";
-        macModule = check_and_cast<Ieee80211OldMac2 *>(getModuleByPath(modulename.c_str()));
-        isChannelFree = macModule->isMediumFree();
-        channelBusyState[gateindex] = isChannelFree ? false : true;
+            std::string modulename = std::string("^.mac[") + std::to_string(gateindex) + "]";
+            macModule = check_and_cast<Ieee80211OldMac2 *>(getModuleByPath(modulename.c_str()));
+            isChannelFree = macModule->isMediumFree();
+            channelBusyState[gateindex] = !isChannelFree;
+        }
 
     }
     channelBusyState[gateindex] = true;
