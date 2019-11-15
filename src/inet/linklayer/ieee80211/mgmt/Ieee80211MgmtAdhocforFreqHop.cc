@@ -269,6 +269,7 @@ void Ieee80211MgmtAdhocforFreqHop::fragmentAndSend(Ieee80211DataFrameWithSNAP *d
 
     cPacket *payload = dataframe->decapsulate();
     int headerLength = dataframe->getByteLength();
+    dataframe->setHeaderLength(headerLength);
     int payloadLength = payload->getByteLength();
 
     int fragmentLength = ((frameMTU - headerLength) / 8) * 8;// payload only (without header)
@@ -298,7 +299,7 @@ void Ieee80211MgmtAdhocforFreqHop::fragmentAndSend(Ieee80211DataFrameWithSNAP *d
 
         // "more fragments" bit is unchanged in the last fragment, otherwise true
         if(!lastFragment)
-            fragment->setMoreFragments(true);
+            fragment->setMoreFragment(true);
 
         fragment->setByteLength(headerLength);
         fragment->encapsulate(payloadFrag);
@@ -321,10 +322,10 @@ void Ieee80211MgmtAdhocforFreqHop::reassembleAndDeliver(Ieee80211DataFrameWithSN
         EV_WARN << "Received datagram '%s' without source address filled in" << dataframe->getName() << "\n";
 
     // reassemble the packet (if fragmented)
-    if(dataframe->getFragmentOffset()!=0 || dataframe->getMoreFragments())
+    if(dataframe->getFragmentOffset()!=0 || dataframe->getMoreFragment())
     {
         EV_DETAIL << "Datagram fragment: offset=" << dataframe->getFragmentOffset()
-                << ", More=" << (dataframe->getMoreFragments() ? "true" : "false") << ".\n";
+                << ", More=" << (dataframe->getMoreFragment() ? "true" : "false") << ".\n";
 
         // erase timed out fragments in fragmentation buffer; check every 10 seconds max
         if(simTime() >= lastCheckTime + 10)

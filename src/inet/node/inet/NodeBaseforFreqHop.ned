@@ -50,7 +50,7 @@ module NodeBaseforFreqHop like INetworkNode
         bool hasStatus = default(false);
         bool freqHop = default(false);
         int numExtInterfaces = default(0);
-        int numRadios = (freqHop ? 6 : 1);               // the number of radios in the router. by default no wireless
+        int numRadios = default(freqHop ? 6 : 1);               // the number of radios in the router. by default no wireless
         int numPcapRecorders = default(0); // no of PcapRecorders.
         int numTunInterfaces = default(0);
         string osgModel = default(""); // 3D model for OSG visualization, no 3D model by default

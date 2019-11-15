@@ -74,7 +74,7 @@ Ieee80211DataFrameWithSNAP *Ieee80211FragBuf::addFragment(Ieee80211DataFrameWith
     int bytes = datagram->getByteLength() - datagram->getHeaderLength();
     bool isComplete = buf->buf.addFragment(datagram->getFragmentOffset(),
                 datagram->getFragmentOffset() + bytes,
-                !datagram->getMoreFragments());
+                !datagram->getMoreFragment());
 
     // store datagram. Only one fragment carries the actual modelled
     // content (getEncapsulatedPacket()), other (empty) ones are only
@@ -122,7 +122,7 @@ Ieee80211DataFrameWithSNAP *Ieee80211FragBuf::addFragment(Ieee80211DataFrameWith
         Ieee80211DataFrameWithSNAP *ret = buf->datagram;
         ret->setByteLength(ret->getHeaderLength() + buf->buf.getTotalLength());
         ret->setFragmentOffset(0);
-        ret->setMoreFragments(false);
+        ret->setMoreFragment(false);
         bufs.erase(i);
         if (dynamic_cast<RawPacket *>(ret->getEncapsulatedPacket())) {
             using namespace serializer;
@@ -135,7 +135,7 @@ Ieee80211DataFrameWithSNAP *Ieee80211FragBuf::addFragment(Ieee80211DataFrameWith
             Context c;
             c.l3AddressesPtr = ipv4addresses;
             c.l3AddressesLength = sizeof(ipv4addresses);
-            cPacket *enc = SerializerBase::lookupAndDeserialize(b, c, ETHERTYPE, 0);
+            cPacket *enc = SerializerBase::lookupAndDeserialize(b, c, ETHERTYPE, ret->getEtherType());
             if (enc) {
                 delete ret->decapsulate();
                 ret->encapsulate(enc);

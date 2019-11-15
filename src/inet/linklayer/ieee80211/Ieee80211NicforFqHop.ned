@@ -47,7 +47,7 @@ module Ieee80211NicforFqHop like IWirelessNicMulti
         double bitrate @unit("bps") = default(-1bps);
         bool _agentNeeded = (mgmtType == "Ieee80211MgmtSTA");   // internal par. do not use, shows if optional agent module is needed
         bool freqHop;
-        int numChannel= (freqHop ? 6 : 1);
+        int numChannel= default(freqHop ? 6 : 1);
         **.opMode = opMode;
         **.bitrate = bitrate;
         *.interfaceTableModule = default(absPath(interfaceTableModule));
