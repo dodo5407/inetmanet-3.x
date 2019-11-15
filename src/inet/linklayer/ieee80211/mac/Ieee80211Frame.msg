@@ -206,15 +206,13 @@ packet Ieee80211DataFrame extends Ieee80211DataOrMgmtFrame
 //
 packet Ieee80211DataFrameWithSNAP extends Ieee80211DataFrame
 {
-    byteLength = DATAFRAME_HEADER_MINLENGTH / 8 + SNAP_HEADER_BYTES + 12; // TODO: LLC(SNAP) headers should be in a separate packet
+    byteLength = DATAFRAME_HEADER_MINLENGTH / 8 + SNAP_HEADER_BYTES + 7; // TODO: LLC(SNAP) headers should be in a separate packet
     int etherType @enum(EtherType);
-    short headerLength;//
-    int transportProtocal;
+    uint8 headerLength;//
     int identification;
-    bool moreFragments;
-    int fragmentOffset;
-    int totalLengthField;
-    unsigned int totalPayloadLength;
+    bool moreFragment;
+    uint16 fragmentOffset;
+    uint16 totalPayloadLength;
 }
 
 //

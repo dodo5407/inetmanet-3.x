@@ -109,6 +109,12 @@ void Ieee80211Serializer::serialize(const cPacket *pkt, Buffer &b, Context& c)
             b.writeNBytes(3, "\0\0\0");   // snap_hdr.oui
             b.writeUint16(dataFrame->getEtherType());  // snap_hdr.ethertype
 
+            b.writeByte(dataFrame->getHeaderLength());
+            b.writeUint16(dataFrame->getIdentification());
+            b.writeUint16(dataFrame->getFragmentOffset() << 3
+                            | dataFrame->getMoreFragment() << 1);
+            b.writeUint16(dataFrame->getTotalPayloadLength());
+
             const cPacket *encapPacket = dataFrame->getEncapsulatedPacket();
             SerializerBase::lookupAndSerialize(encapPacket, b, c, ETHERTYPE, dataFrame->getEtherType(), b.getRemainingSize(4));   // 4 byte for store crc at end of packet
         }
@@ -462,6 +468,13 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
             // snap_header:
             b.accessNBytes(6);
             dataFrame->setEtherType(b.readUint16());    // ethertype
+
+            dataFrame->setHeaderLength(b.readByte());
+            dataFrame->setIdentification(b.readUint16());
+            uint16_t offset = b.readUint16();
+            dataFrame->setFragmentOffset(offset >> 3);
+            dataFrame->setMoreFragment(offset & 0x02);
+            dataFrame->setTotalPayloadLength(b.readUint16());
 
             cPacket *encapPacket = SerializerBase::lookupAndDeserialize(b, c, ETHERTYPE, dataFrame->getEtherType(), b.getRemainingSize(4));
             if (encapPacket) {
