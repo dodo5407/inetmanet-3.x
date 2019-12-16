@@ -87,7 +87,24 @@ cPacket *UDPSerializer::deserialize(const Buffer &b, Context& c)
     if (length > UDP_HEADER_BYTES) {
         unsigned int payloadLength = length - UDP_HEADER_BYTES;
         Buffer subBuffer(b, payloadLength);
-        cPacket *encapPacket = serializers.byteArraySerializer.deserializePacket(subBuffer, c);
+        cPacket *encapPacket = nullptr;
+        switch(pkt->getDestinationPort())
+        {
+            case 698:
+            {
+                SerializerBase *serializer = serializers.lookup("inet::inetmanet::OLSR_pkt");
+                if(serializer == nullptr)
+                    cRuntimeError("can't not found correspond serializer!!");
+                encapPacket = serializer->deserializePacket(subBuffer, c);
+                break;
+            }
+            default:
+            {
+                encapPacket = serializers.byteArraySerializer.deserializePacket(subBuffer, c);
+                break;
+            }
+        }
+
         b.accessNBytes(payloadLength);
         pkt->encapsulate(encapPacket);
     }
