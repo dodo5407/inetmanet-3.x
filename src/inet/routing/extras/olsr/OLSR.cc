@@ -1822,7 +1822,7 @@ OLSR::send_pkt()
         OLSR_pkt* op = new OLSR_pkt;
         op->setName("OLSR Pkt");
 
-        op->setByteLength( OLSR_PKT_HDR_SIZE );
+        op->setByteLength( OLSR_PKT_HDR_SIZE + 2 ); //add msg_arraysize Length
         op->setPkt_seq_num( pkt_seq());
         op->setReduceFuncionality(par("reduceFuncionality").boolValue());
 

@@ -37,6 +37,7 @@ void ByteArray::copyDataFromBuffer(unsigned int destOffset, const void *ptr, uns
             memcpy(ndata, data, data_arraysize);
         delete[] data;
         data = ndata;
+        data_arraysize = nlength;
     }
     memcpy(data + destOffset, ptr, length);
 }

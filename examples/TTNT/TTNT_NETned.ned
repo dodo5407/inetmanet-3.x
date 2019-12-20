@@ -17,8 +17,8 @@ package inet.examples.TTNT;
 
 // numOfHosts: 5
 import inet.networklayer.configurator.ipv4.IPv4NetworkConfigurator;
-import inet.node.inet.AdhocHost;
-import inet.physicallayer.ieee80211.packetlevel.Ieee80211ScalarRadioMedium;
+import inet.node.inet.INetworkNode;
+import inet.physicallayer.contract.packetlevel.IRadioMedium;
 import inet.visualizer.integrated.IntegratedVisualizer;
 
 
@@ -27,22 +27,24 @@ network TTNT_net
     parameters:
         int numHosts;
         int numFixHosts;
+        string radioMediumType;
+        string hosttype = default("AdhocHost");
     submodules:
-        fixhost[numFixHosts]: AdhocHost {
+        fixhost[numFixHosts]: <hosttype> like INetworkNode {
             parameters:
                 @display("i=device/plane;r=,,#707070");
         }
-        host[numHosts]: AdhocHost {
+        host[numHosts]: <hosttype> like INetworkNode {
             parameters:
                 @display("i=device/plane;r=,,#707070");
         }
-        radioMedium: Ieee80211ScalarRadioMedium {
+        radioMedium: <radioMediumType> like IRadioMedium {
             parameters:
                 @display("p=60,50;i=misc/sun");
         }
         configurator: IPv4NetworkConfigurator {
             parameters:
-                config = xml("<config><interface hosts='*' address='145.236.x.x' netmask='255.255.0.0'/></config>");
+                config = xml("<config><interface hosts='*' address='192.168.x.x' netmask='255.255.0.0'/></config>");
                 @display("p=140,50;i=block/cogwheel_s");
         }
         visualizer: IntegratedVisualizer {

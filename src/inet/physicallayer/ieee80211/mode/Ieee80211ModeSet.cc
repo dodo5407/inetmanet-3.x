@@ -506,6 +506,7 @@ const IIeee80211Mode *Ieee80211ModeSet::findMode(bps bitrate) const
 {
     for (int index = 0; index < (int)entries.size(); index++) {
         const IIeee80211Mode *mode = entries[index].mode;
+        EV_DEBUG << bps(std::round(mode->getDataMode()->getNetBitrate().get() / 1e5) * 1e5) << "\n";
         if (bps(std::round(mode->getDataMode()->getNetBitrate().get() / 1e5) * 1e5) == bitrate) // round to 1 decimal in Mbits
             return entries[index].mode;
     }
