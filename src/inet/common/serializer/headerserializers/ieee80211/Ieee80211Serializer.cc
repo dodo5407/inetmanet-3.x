@@ -476,7 +476,15 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
             dataFrame->setMoreFragment(offset & 0x02);
             dataFrame->setTotalPayloadLength(b.readUint16());
 
-            cPacket *encapPacket = SerializerBase::lookupAndDeserialize(b, c, ETHERTYPE, dataFrame->getEtherType(), b.getRemainingSize(4));
+            cPacket *encapPacket;
+            if (dataFrame->getMoreFragment() || dataFrame->getFragmentOffset() != 0) {  // mac fragment
+                Buffer subBuffer(b, b.getRemainingSize(4));
+                encapPacket = serializers.byteArraySerializer.deserialize(subBuffer, c);
+                b.accessNBytes(subBuffer.getPos());
+            }
+            else
+                encapPacket = SerializerBase::lookupAndDeserialize(b, c, ETHERTYPE, dataFrame->getEtherType(), b.getRemainingSize(4));
+
             if (encapPacket) {
                 dataFrame->encapsulate(encapPacket);
                 dataFrame->setName(encapPacket->getName());

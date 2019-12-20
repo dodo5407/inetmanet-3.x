@@ -128,9 +128,6 @@ Ieee80211DataFrameWithSNAP *Ieee80211FragBuf::addFragment(Ieee80211DataFrameWith
             using namespace serializer;
             RawPacket *rp = static_cast<RawPacket *>(ret->getEncapsulatedPacket());
             char ipv4addresses[8];    // 2 * 4 bytes for 2 IPv4 addresses
-            Buffer hdr(ipv4addresses, sizeof(ipv4addresses));
-            hdr.writeMACAddress(ret->getTransmitterAddress());
-            hdr.writeMACAddress(ret->getReceiverAddress());
             Buffer b(rp->getByteArray().getDataPtr(), rp->getByteArray().getDataArraySize());
             Context c;
             c.l3AddressesPtr = ipv4addresses;
