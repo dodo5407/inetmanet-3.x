@@ -38,6 +38,7 @@ simple Ieee80211MgmtAdhocforFreqHop like IIeee80211MgmtforFreqHop
         int frameMTU = default(1500);
         int maxMultiOutChannel = default(1);
         double fragmentTimeoutTime @unit("s") = default(60s);
+        //double carrierFrequencyBase@unit("Hz") = default(2.412GHz);
         @signal[macTrasmissionFinished](type=Ieee80211DataFrameWithSNAP?);
         @display("i=block/cogwheel");
     gates:

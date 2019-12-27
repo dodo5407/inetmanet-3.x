@@ -24,7 +24,7 @@
 #include "inet/linklayer/ieee80211/mac/Ieee80211Frame_m.h"
 #include "inet/linklayer/ieee80211/mgmt/Ieee80211FragBuf.h"
 #include "inet/linklayer/ieee80211/oldmac/Ieee80211OldMac2.h"
-#include "inet/physicallayer/ieee80211/packetlevel/Ieee80211Radio.h"
+#include "inet/physicallayer/common/packetlevel/Radio.h"
 
 namespace inet {
 
@@ -61,7 +61,7 @@ class INET_API Ieee80211MgmtAdhocforFreqHop : public Ieee80211MgmtBase, public c
     int maxMultiOutChannel;
 
     Ieee80211OldMac2 *macModule = nullptr;
-    Ieee80211Radio *radioModule = nullptr;
+    Radio *radioModule = nullptr;
     cMessage *endSIFS;
 
   public:
@@ -75,6 +75,7 @@ class INET_API Ieee80211MgmtAdhocforFreqHop : public Ieee80211MgmtBase, public c
 
     int  checkFreeChannel(void);
     void changeChannel(int channelNum, int gateindex);
+    void changeFrequency(Hz carrierFrequency, int gateindex);
 
     /** Implements abstract Ieee80211MgmtBase method */
     virtual void handleTimer(cMessage *msg) override;

@@ -45,7 +45,7 @@ void Ieee80211MgmtAdhocforFreqHop::initialize(int stage)
         channelBusyState = new bool[numMac];
 
     if ((numMac > 1)&&(stage == INITSTAGE_LINK_LAYER_2)) {
-        const char *bandName = getModuleByPath("^.radio[0]")->par("bandName");
+        /*const char *bandName = getModuleByPath("^.radio[0]")->par("bandName");
         int numChannels = Ieee80211CompliantBands::getBand(bandName)->getNumChannels();
 
         float diff = (float)numChannels / (float)numMac;
@@ -53,10 +53,18 @@ void Ieee80211MgmtAdhocforFreqHop::initialize(int stage)
         for(int index=0; index<numMac; index++){
             changeChannel(space*index, index);
         }
+        */
+        /*GHz freqencyBase(par("carrierFrequencyBase"));
+
+        Hz space(getModuleByPath("^.radio[0]")->par("bandwidth"));
+        space += MHz(5);
+        for(int index=0; index<numMac; index++){
+            changeFrequency(freqencyBase + space*index, index);
+        }*/
 
         for(int gateindex=0; gateindex<numMac; gateindex++) {
             std::string modulename = std::string("^.radio[") + std::to_string(gateindex) + "]";
-            radioModule = check_and_cast<Ieee80211Radio *>(getModuleByPath(modulename.c_str()));
+            radioModule = check_and_cast<Radio *>(getModuleByPath(modulename.c_str()));
             radioModule->subscribe(macTrasmissionFinishedSignal,this);
         }
 
@@ -192,6 +200,17 @@ void Ieee80211MgmtAdhocforFreqHop::changeChannel(int channelNum, int gateindex)
     Ieee80211ConfigureRadioCommand *configureCommand = new Ieee80211ConfigureRadioCommand();
     configureCommand->setChannelNumber(channelNum);
     cMessage *msg = new cMessage("changeChannel", RADIO_C_CONFIGURE);
+    msg->setControlInfo(configureCommand);
+    send(msg, "macOut", gateindex);
+}
+
+void Ieee80211MgmtAdhocforFreqHop::changeFrequency(Hz carrierFrequency, int gateindex)
+{
+    EV << "Tuning to frequency #" << carrierFrequency << "\n";
+
+    Ieee80211ConfigureRadioCommand *configureCommand = new Ieee80211ConfigureRadioCommand();
+    configureCommand->setCarrierFrequency(carrierFrequency);
+    cMessage *msg = new cMessage("changeFrequency", RADIO_C_CONFIGURE);
     msg->setControlInfo(configureCommand);
     send(msg, "macOut", gateindex);
 }
