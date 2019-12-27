@@ -549,7 +549,7 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
             Ieee80211SupportedRatesElement supRat;
             b.readByte();
             supRat.numRates = b.readByte();
-            for (int i = 0; i < supRat.numRates; i++)
+            for (int i = 0; i < supRat.numRates && i < 8; i++)
                 supRat.rate[i] = (double)(b.readByte() & 0x7F) * 0.5;
             body.setSupportedRates(supRat);
 
@@ -574,7 +574,7 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
             Ieee80211SupportedRatesElement supRat;
             b.readByte();
             supRat.numRates = b.readByte();
-            for (int i = 0; i < supRat.numRates; i++)
+            for (int i = 0; i < supRat.numRates && i < 8; i++)
                 supRat.rate[i] = (double)(b.readByte() & 0x7F) * 0.5;
             body.setSupportedRates(supRat);
 
@@ -603,7 +603,7 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
             Ieee80211SupportedRatesElement supRat;
             b.readByte();
             supRat.numRates = b.readByte();
-            for (int i = 0; i < supRat.numRates; i++)
+            for (int i = 0; i < supRat.numRates && i < 8; i++)
                 supRat.rate[i] = (double)(b.readByte() & 0x7F) * 0.5;
             body.setSupportedRates(supRat);
 
@@ -624,7 +624,7 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
             Ieee80211SupportedRatesElement supRat;
             b.readByte();
             supRat.numRates = b.readByte();
-            for (int i = 0; i < supRat.numRates; i++)
+            for (int i = 0; i < supRat.numRates && i < 8; i++)
                 supRat.rate[i] = (double)(b.readByte() & 0x7F) * 0.5;
             body.setSupportedRates(supRat);
 
@@ -645,7 +645,7 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
             Ieee80211SupportedRatesElement supRat;
             b.readByte();
             supRat.numRates = b.readByte();
-            for (int i = 0; i < supRat.numRates; i++)
+            for (int i = 0; i < supRat.numRates && i < 8; i++)
                 supRat.rate[i] = (double)(b.readByte() & 0x7F) * 0.5;
             body.setSupportedRates(supRat);
 
@@ -675,7 +675,7 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
             Ieee80211SupportedRatesElement supRat;
             b.readByte();
             supRat.numRates = b.readByte();
-            for (int i = 0; i < supRat.numRates; i++)
+            for (int i = 0; i < supRat.numRates && i < 8; i++)
                 supRat.rate[i] = (double)(b.readByte() & 0x7F) * 0.5;
             body.setSupportedRates(supRat);
 
@@ -705,7 +705,7 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
             Ieee80211SupportedRatesElement supRat;
             b.readByte();
             supRat.numRates = b.readByte();
-            for (int i = 0; i < supRat.numRates; i++)
+            for (int i = 0; i < supRat.numRates && i < 8; i++)
                 supRat.rate[i] = (double)(b.readByte() & 0x7F) * 0.5;
             body.setSupportedRates(supRat);
 
@@ -734,7 +734,7 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
         frame->setBitError(true);
 
     // TODO: don't set this directly, it should be computed above separately in each case
-    if (frame->getByteLength() != b.getPos()) {
+    if ((frame->getByteLength() != b.getPos()) && (!frame->hasBitError())) {
         throw cRuntimeError("ieee802.11 deserializer: packet length error: generated=%i v.s. read=%i", (int)frame->getByteLength(), b.getPos());
     }
     //frame->setByteLength(b.getPos());

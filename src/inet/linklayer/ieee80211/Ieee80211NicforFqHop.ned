@@ -41,7 +41,7 @@ module Ieee80211NicforFqHop like IWirelessNicMulti
         string energySourceModule = default("");
         string classifierType = default(""); // needed for EDCA, as the classifier assigns User Priority (UP) to packets; UP determines Access Category via TID
         string mgmtType = default("Ieee80211MgmtAdhocforFreqHop"); // name of the management module type (implements IIeee80211Mgmt)
-        string radioType = default("Ieee80211ScalarRadioforTTNT");
+        string radioType = default("Ieee80211APSKRadioforTTNT");
         string macType = default("Ieee80211OldMac2");   // choose from Ieee80211Mac and Ieee80211CompatibleMac, @see IIeee80211Mac
         string opMode @enum("a", "b", "g(erp)", "g(mixed)", "n(mixed-2.4Ghz)", "p", "ac") = default("g(mixed)");
         double bitrate @unit("bps") = default(-1bps);
