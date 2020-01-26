@@ -46,12 +46,14 @@ module Ieee80211NicforFqHop like IWirelessNicMulti
         string opMode @enum("a", "b", "g(erp)", "g(mixed)", "n(mixed-2.4Ghz)", "p", "ac") = default("g(mixed)");
         double bitrate @unit("bps") = default(-1bps);
         bool _agentNeeded = (mgmtType == "Ieee80211MgmtSTA");   // internal par. do not use, shows if optional agent module is needed
-        bool freqHop;
-        int numChannel= default(freqHop ? 6 : 1);
+        int numRadios;
+        double carrierFrequencyBase@unit(Hz) = default(2.412GHz);
+        double bandwidth@unit(Hz) = default(20MHz);
         **.opMode = opMode;
         **.bitrate = bitrate;
         *.interfaceTableModule = default(absPath(interfaceTableModule));
         *.energySourceModule = default(absPath(energySourceModule));
+        *.bandwidth = bandwidth;
         @nic;
         @display("i=block/ifcard");
     gates:
@@ -72,19 +74,20 @@ module Ieee80211NicforFqHop like IWirelessNicMulti
                 macModule = "^.mac[0]";
                 @display("p=100,100");
             gates:
-                macIn[numChannel];
-                macOut[numChannel];
+                macIn[numRadios];
+                macOut[numRadios];
         }
-        mac[numChannel]: <macType> like IIeee80211Mac {
+        mac[numRadios]: <macType> like IIeee80211Mac {
             parameters:
                 @display("p=100,200");
         }
-        radio[numChannel]: <radioType> like IRadio {
+        radio[numRadios]: <radioType> like IRadio {
             parameters:
+                carrierFrequency = default(carrierFrequencyBase + (bandwidth+5MHz)*index);
                 @display("p=100,300");
         }
     connections:
-        for i=0..numChannel-1 {
+        for i=0..numRadios-1 {
         radioIn[i] --> { @display("m=s"); } --> radio[i].radioIn;
         radio[i].upperLayerIn <-- mac[i].lowerLayerOut;
         radio[i].upperLayerOut --> mac[i].lowerLayerIn;
