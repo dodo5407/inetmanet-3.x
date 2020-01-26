@@ -89,11 +89,6 @@ module NodeBaseforFreqHop like INetworkNode
             parameters:
                 @display("p=50,150;i=block/plug;is=s");
         }
-        // optional mobility module. Required only if wireless cards are present
-        mobility: <mobilityType> like IMobility if mobilityType != "" {
-            parameters:
-                @display("p=53,200");
-        }
         // network layer
         networkLayer: <networkLayerType> like INetworkLayer {
             parameters:
@@ -119,6 +114,11 @@ module NodeBaseforFreqHop like INetworkNode
             parameters:
                 **.freqHop = freqHop;
                 @display("p=216,406,row,60;q=queue");
+        }
+        // optional mobility module. Required only if wireless cards are present
+        mobility: <mobilityType> like IMobility if mobilityType != "" {
+            parameters:
+                @display("p=53,200");
         }
         eth[sizeof(ethg)]: <default("EthernetInterface")> like IWiredNic {
             parameters:
