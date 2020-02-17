@@ -1276,6 +1276,12 @@ void IPv4::fragmentAndSend(IPv4Datagram *datagram, const InterfaceEntry *ie, IPv
     // check if datagram does not require fragmentation
     if (mtu == 0 || datagram->getByteLength() <= mtu)
     {
+        auto macModule = getModuleByPath("^.^.wlan.mgmt");
+        if (macModule && !strcmp(macModule->getClassName(),"inet::ieee80211::Ieee80211MgmtAdhocforFreqHop")) {
+            if (datagram->getEncapsulatedPacket())
+                    datagram->setTotalPayloadLength(datagram->getEncapsulatedPacket()->getByteLength());
+            datagram->setTotalLengthField(datagram->getByteLength());
+        }
         sendDatagramToOutput(datagram, ie, nextHopAddr);
         return;
     }
@@ -1335,6 +1341,10 @@ void IPv4::fragmentAndSend(IPv4Datagram *datagram, const InterfaceEntry *ie, IPv
 
         fragment->setByteLength(headerLength);
         fragment->encapsulate(payloadFrag);
+        auto macModule = getModuleByPath("^.^.wlan.mgmt");
+        if (macModule && !strcmp(macModule->getClassName(),"inet::ieee80211::Ieee80211MgmtAdhocforFreqHop")) {
+            fragment->setTotalLengthField(headerLength + thisFragmentLength);
+        }
 
         fragment->setFragmentOffset(offsetBase + offset);
 

@@ -116,7 +116,22 @@ void Ieee80211Serializer::serialize(const cPacket *pkt, Buffer &b, Context& c)
             b.writeUint16(dataFrame->getTotalPayloadLength());
 
             const cPacket *encapPacket = dataFrame->getEncapsulatedPacket();
-            SerializerBase::lookupAndSerialize(encapPacket, b, c, ETHERTYPE, dataFrame->getEtherType(), b.getRemainingSize(4));   // 4 byte for store crc at end of packet
+            auto macModule = dynamic_cast<cModule *>(getDefaultOwner())->getModuleByPath("host[0].wlan.mgmt");
+            if (macModule && !strcmp(macModule->getClassName(),"inet::ieee80211::Ieee80211MgmtAdhocforFreqHop"))
+            {
+                int totalLength = dataFrame->getTotalPayloadLength();
+                char *buf = new char[totalLength];
+                Buffer tmpBuffer(buf, totalLength);
+                cPacket *tmpPacket = encapPacket->dup();
+                tmpPacket->setByteLength(totalLength);
+                SerializerBase::lookupAndSerialize(tmpPacket, tmpBuffer, c, ETHERTYPE, dataFrame->getEtherType()); //b.getRemainingSize(4)
+                tmpBuffer.seek(dataFrame->getFragmentOffset());
+                b.writeNBytes(tmpBuffer, dataFrame->getByteLength() - b.getPos() - 4);
+                delete [] buf;
+                delete tmpPacket;
+            }
+            else
+                SerializerBase::lookupAndSerialize(encapPacket, b, c, ETHERTYPE, dataFrame->getEtherType(), b.getRemainingSize(4));   // 4 byte for store crc at end of packet
         }
         else if (dynamic_cast<const Ieee80211AuthenticationFrame *>(pkt))
         {
@@ -477,7 +492,8 @@ cPacket* Ieee80211Serializer::deserialize(const Buffer &b, Context& c)
             dataFrame->setTotalPayloadLength(b.readUint16());
 
             cPacket *encapPacket;
-            if (dataFrame->getMoreFragment() || dataFrame->getFragmentOffset() != 0) {  // mac fragment
+            auto macModule = dynamic_cast<cModule *>(getDefaultOwner())->getModuleByPath("host[0].wlan.mgmt");
+            if (macModule && !strcmp(macModule->getClassName(),"inet::ieee80211::Ieee80211MgmtAdhocforFreqHop")) {//if (dataFrame->getMoreFragment() || dataFrame->getFragmentOffset() != 0)
                 Buffer subBuffer(b, b.getRemainingSize(4));
                 encapPacket = serializers.byteArraySerializer.deserialize(subBuffer, c);
                 b.accessNBytes(subBuffer.getPos());

@@ -15,6 +15,8 @@
 // along with this program; if not, see <http://www.gnu.org/licenses/>.
 //
 
+#include "inet/common/RawPacket.h"
+#include "inet/common/serializer/SerializerBase.h"
 #include "inet/linklayer/ieee80211/mgmt/Ieee80211MgmtAdhocforFreqHop.h"
 #include "inet/linklayer/common/Ieee802Ctrl.h"
 #include "inet/physicallayer/ieee80211/packetlevel/Ieee80211ControlInfo_m.h"
@@ -276,15 +278,15 @@ void Ieee80211MgmtAdhocforFreqHop::fragmentAndSend(Ieee80211DataFrameWithSNAP *d
 {
     int frameMTU = par("frameMTU");
 
+    if(dataframe->getEncapsulatedPacket())
+        dataframe->setTotalPayloadLength(dataframe->getEncapsulatedPacket()->getByteLength());
+
     // check if datagram does not require fragmentation
     if (frameMTU == 0 || dataframe->getByteLength() <= frameMTU)
     {
         sendFromFreeChannel(dataframe);
         return;
     }
-
-    if(dataframe->getEncapsulatedPacket())
-        dataframe->setTotalPayloadLength(dataframe->getEncapsulatedPacket()->getByteLength());
 
     cPacket *payload = dataframe->decapsulate();
     int headerLength = dataframe->getByteLength();
@@ -370,6 +372,24 @@ void Ieee80211MgmtAdhocforFreqHop::reassembleAndDeliver(Ieee80211DataFrameWithSN
             return;
         }
         EV_DETAIL << "This fragment completes the datagram.\n";
+    }else {
+        dataframe->setFragmentOffset(0);
+        dataframe->setMoreFragment(false);
+        if (dynamic_cast<RawPacket *>(dataframe->getEncapsulatedPacket())) {
+            using namespace serializer;
+            RawPacket *rp = static_cast<RawPacket *>(dataframe->getEncapsulatedPacket());
+            char ipv4addresses[8];    // 2 * 4 bytes for 2 IPv4 addresses
+            Buffer b(rp->getByteArray().getDataPtr(), rp->getByteArray().getDataArraySize());
+            Context c;
+            c.l3AddressesPtr = ipv4addresses;
+            c.l3AddressesLength = sizeof(ipv4addresses);
+            cPacket *enc = SerializerBase::lookupAndDeserialize(b, c, ETHERTYPE, dataframe->getEtherType());
+            if (enc) {
+                delete dataframe->decapsulate();
+                dataframe->encapsulate(enc);
+            }
+        }
+        EV_DETAIL << "This datagram is not fragment. Send up!\n";
     }
 
     reassembleAndDeliverFinish(check_and_cast<Ieee80211DataFrame *>(dataframe));

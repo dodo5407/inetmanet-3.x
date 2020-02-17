@@ -775,6 +775,11 @@ void UDP::sendDown(cPacket *appData, const L3Address& srcAddr, ushort srcPort, c
     udpPacket->setByteLength(UDP_HEADER_BYTES);
     udpPacket->encapsulate(appData);
 
+    auto macModule = getModuleByPath("^.wlan.mgmt");
+    if (macModule && !strcmp(macModule->getClassName(),"inet::ieee80211::Ieee80211MgmtAdhocforFreqHop")) {
+        udpPacket->setTotalLengthField(UDP_HEADER_BYTES + appData->getByteLength());
+    }
+
     // set source and destination port
     udpPacket->setSourcePort(srcPort);
     udpPacket->setDestinationPort(destPort);
