@@ -581,6 +581,10 @@ void ManetRoutingBase::sendToIpOnIface(cPacket *msg, int srcPort, const L3Addres
     }
 
     UDPPacket *udpPacket = new UDPPacket(msg->getName());
+    auto macModule = getModuleByPath("^.wlan.mgmt");
+    if (macModule && !strcmp(macModule->getClassName(),"inet::ieee80211::Ieee80211MgmtAdhocforFreqHop")) {
+        udpPacket->setTotalLengthField(udpPacket->getByteLength() + msg->getByteLength());
+    }
     udpPacket->encapsulate(msg);
     //Address srcAddr = interfaceWlanptr->ipv4Data()->getIPAddress();
 

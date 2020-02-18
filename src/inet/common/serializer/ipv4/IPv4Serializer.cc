@@ -34,6 +34,7 @@
 #include "inet/common/serializer/TCPIPchecksum.h"
 #include "inet/linklayer/common/Ieee802Ctrl_m.h"
 #include "inet/networklayer/common/IPProtocolId_m.h"
+#include "inet/linklayer/ieee80211/mgmt/Ieee80211MgmtAdhocforFreqHop.h"
 
 #if defined(_MSC_VER)
 #undef s_addr    /* MSVC #definition interferes with us */
@@ -187,7 +188,22 @@ void IPv4Serializer::serialize(const cPacket *pkt, Buffer &b, Context& c)
     if (encapPacket) {
         unsigned int totalLength = encapPacket->getByteLength();
         int fragmentOffset = dgram->getFragmentOffset();
-        if ((dgram->getMoreFragments() || fragmentOffset != 0) && (payloadLength < totalLength)) {  // IP fragment  //FIXME hack: encapsulated packet contains entire packet if payloadLength < totalLength
+
+        auto macModule = dynamic_cast<cModule *>(getDefaultOwner())->getModuleByPath("host[0].wlan.mgmt");
+        if (macModule && !strcmp(macModule->getClassName(),"inet::ieee80211::Ieee80211MgmtAdhocforFreqHop")
+                && (dgram->getMoreFragments() || fragmentOffset != 0)) {
+            int upperTotalLength = dgram->getTotalPayloadLength();
+            char *buf = new char[upperTotalLength];
+            Buffer tmpBuffer(buf, upperTotalLength);
+            cPacket *tmpPacket = encapPacket->dup();
+            tmpPacket->setByteLength(upperTotalLength);
+            SerializerBase::lookupAndSerialize(tmpPacket, tmpBuffer, c, IP_PROT, dgram->getTransportProtocol());
+            tmpBuffer.seek(fragmentOffset);
+            b.writeNBytes(tmpBuffer, totalLength);
+            delete [] buf;
+            delete tmpPacket;
+        }
+        else if ((dgram->getMoreFragments() || fragmentOffset != 0) && (payloadLength < totalLength)) {  // IP fragment  //FIXME hack: encapsulated packet contains entire packet if payloadLength < totalLength
             char *buf = new char[totalLength];
             Buffer tmpBuffer(buf, totalLength);
             SerializerBase::lookupAndSerialize(encapPacket, tmpBuffer, c, IP_PROT, dgram->getTransportProtocol());
@@ -356,7 +372,14 @@ cPacket* IPv4Serializer::deserialize(const Buffer &b, Context& c)
     dest->setByteLength(headerLength);
     unsigned int payloadLength = totalLength - headerLength;
     cPacket *encapPacket = nullptr;
-    if (dest->getMoreFragments() || dest->getFragmentOffset() != 0) {  // IP fragment
+    auto macModule = dynamic_cast<cModule *>(getDefaultOwner())->getModuleByPath("host[0].wlan.mgmt");
+    if ((dest->getMoreFragments() || dest->getFragmentOffset() != 0)
+            && macModule && !strcmp(macModule->getClassName(),"inet::ieee80211::Ieee80211MgmtAdhocforFreqHop")) {
+        Buffer subBuffer(b, b.getRemainingSize());
+        encapPacket = serializers.byteArraySerializer.deserialize(subBuffer, c);
+        b.accessNBytes(subBuffer.getPos());
+    }
+    else if (dest->getMoreFragments() || dest->getFragmentOffset() != 0) {  // IP fragment
         Buffer subBuffer(b, payloadLength);
         encapPacket = serializers.byteArraySerializer.deserialize(subBuffer, c);
         b.accessNBytes(subBuffer.getPos());

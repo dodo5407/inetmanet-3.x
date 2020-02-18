@@ -19,7 +19,7 @@ moduleinterface IWirelessNicMulti
 {
     parameters:
         @display("i=block/ifcard");
-        // string mgmtType; // name of the management module type (implements IIeee80211Mgmt)
+        int numRadios;
     gates:
         input upperLayerIn; // to upper layers
         output upperLayerOut; // from upper layers
