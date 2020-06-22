@@ -64,15 +64,6 @@ void Ieee80211OldMac2::initializeCategories()
             catEdca.retryCounter = 0;
             edcCAF.push_back(catEdca);
     }
-
-
-
-
-
-
-
-
-
     // statistics
     for (int i=0; i<numCategories(); i++)
     {
@@ -80,6 +71,7 @@ void Ieee80211OldMac2::initializeCategories()
         numSentWithoutRetry(i) = 0;
         numGivenUp(i) = 0;
         numSent(i) = 0;
+        numDropped(i) = 0;
         bits(i) = 0;
         maxJitter(i) = SIMTIME_ZERO;
         minJitter(i) = SIMTIME_ZERO;
@@ -253,6 +245,12 @@ void Ieee80211OldMac2::initialize(int stage)
 
         stateVector.setName("State");
         stateVector.setEnum("inet::ieee80211::Ieee80211OldMac2");
+        numReceivedVector.setName("received packets");
+        numReceivedMulticastVector.setName("received multicast packets");
+        numReceivedOtherVector.setName("received not for us or other packets");
+        numCollisionVector.setName("collision packets");
+        numCollisionMulticastVector.setName("collision multicast packets");
+
 
         // Code to compute the throughput over a period of time
         throughputTimePeriod = par("throughputTimePeriod");
@@ -313,9 +311,6 @@ void Ieee80211OldMac2::initWatches()
         WATCH(edcCAF[i].retryCounter);
 
     for (int i=0; i<numCategories(); i++)
-        WATCH_LIST(edcCAF[i].transmissionQueue);
-
-    for (int i=0; i<numCategories(); i++)
         WATCH(edcCAF[i].numRetry);
     for (int i=0; i<numCategories(); i++)
         WATCH(edcCAF[i].numSentWithoutRetry);
@@ -367,14 +362,9 @@ void Ieee80211OldMac2::configureAutoBitRate()
 void Ieee80211OldMac2::finish()
 {
     recordScalar("number of received packets", numReceived);
+    recordScalar("number of received multicast packets", numReceivedMulticast);
+    recordScalar("number of received and not sendup packets", numReceivedOther);
     recordScalar("number of collisions", numCollision);
-    recordScalar("number of internal collisions", numInternalCollision);
-    for (int i = 0; i < numCategories(); i++) {
-        std::stringstream os;
-        os << i;
-        std::string th = "number of retry for AC " + os.str();
-        recordScalar(th.c_str(), numRetry(i));
-    }
     recordScalar("sent and received bits", numBits);
     for (int i = 0; i < numCategories(); i++) {
         std::stringstream os;
@@ -383,18 +373,8 @@ void Ieee80211OldMac2::finish()
         recordScalar(th.c_str(), numSent(i));
     }
 
-    for (int i = 0; i < numCategories(); i++) {
-        std::stringstream os;
-        os << i;
-        std::string th = "sentWithoutRetry AC " + os.str();
-        recordScalar(th.c_str(), numSentWithoutRetry(i));
-    }
-    for (int i = 0; i < numCategories(); i++) {
-        std::stringstream os;
-        os << i;
-        std::string th = "numGivenUp AC " + os.str();
-        recordScalar(th.c_str(), numGivenUp(i));
-    }
+    recordScalar("sent muticast packet", numSentMulticast);
+
     for (int i = 0; i < numCategories(); i++) {
         std::stringstream os;
         os << i;
@@ -551,7 +531,7 @@ int Ieee80211OldMac2::mappingAccessCategory(Ieee80211DataOrMgmtFrame *frame)
             transmissionQueue()->insert(p, frame);
         }
     }
-    EV_DEBUG << "frame classified as access category " << currentAC << " (0 background, 1 best effort, 2 video, 3 voice)\n";
+
     return true;
 }
 
@@ -850,31 +830,6 @@ void Ieee80211OldMac2::sendDataFrameOnEndSIFS(Ieee80211DataOrMgmtFrame *frameToS
 
 void Ieee80211OldMac2::sendDataFrame(Ieee80211DataOrMgmtFrame *frameToSend)
 {
-    simtime_t t = 0, time = 0;
-    int count = 0;
-    auto frame = transmissionQueue()->begin();
-    ASSERT(*frame == frameToSend);
-    if (transmissionQueue()->size() >= 2) {
-        //we start packet burst within TXOP time period
-
-        for (frame = transmissionQueue()->begin(); frame != transmissionQueue()->end(); ++frame) {
-            count++;
-            t = computeFrameDuration(*frame) + 2 * getSIFS();
-            EV_DEBUG << "t is " << t << endl;
-            /*if (TXOP() > time + t) {
-                time += t;
-                EV_DEBUG << "adding t\n";
-            }*/
-            if(1){}
-            else {
-                break;
-            }
-        }
-        //to be sure we get endTXOP earlier then receive ACK and we have to minus SIFS time from first packet
-        time -= getSIFS() / 2 + getSIFS();
-        EV_DEBUG << "duration is " << time << ", count is " << count << endl;
-
-    }
     EV_INFO << "sending Data frame\n";
     configureRadioMode(IRadio::RADIO_MODE_TRANSMITTER);
     sendDown(buildDataFrame(dynamic_cast<Ieee80211DataOrMgmtFrame *>(setBitrateFrame(frameToSend))));
@@ -1144,25 +1099,15 @@ void Ieee80211OldMac2::logState()
 {
     int numCategs = numCategories();
     EV_TRACE << "# state information: mode = " << modeName(mode) << ", state = " << fsm.getStateName();
-    EV_TRACE << ", backoff 0.." << numCategs << " =";
-    for (int i = 0; i < numCategs; i++)
-        EV_TRACE << " " << edcCAF[i].backoff;
-    EV_TRACE << "\n# backoffPeriod 0.." << numCategs << " =";
-    for (int i = 0; i < numCategs; i++)
-        EV_TRACE << " " << edcCAF[i].backoffPeriod;
-    EV_TRACE << "\n# retryCounter 0.." << numCategs << " =";
-    for (int i = 0; i < numCategs; i++)
-        EV_TRACE << " " << edcCAF[i].retryCounter;
     EV_TRACE << ", radioMode = " << radio->getRadioMode()
              << ", receptionState = " << radio->getReceptionState()
-             << ", transmissionState = " << radio->getTransmissionState()
-             << ", txop is " << txop << "\n";
+             << ", transmissionState = " << radio->getTransmissionState()<< "\n";
     EV_TRACE << "#queue size 0.." << numCategs << " =";
     for (int i = 0; i < numCategs; i++)
         EV_TRACE << " " << transmissionQueue(i)->size();
     EV_TRACE << ", medium is " << (isMediumFree() ? "free" : "busy");
     EV_TRACE << ", ";
-    EV_TRACE << "\n# currentAC: " << currentAC << ", oldcurrentAC: " << oldcurrentAC;
+    EV_TRACE << "\n";
     if (getCurrentTransmission() != nullptr)
         EV_TRACE << "\n# current transmission: " << getCurrentTransmission()->getId();
     else

@@ -53,11 +53,18 @@ class INET_API Ieee80211MgmtAdhocforFreqHop : public Ieee80211MgmtBase, public c
     simtime_t fragmentTimeoutTime;
     simtime_t lastCheckTime;
     Ieee80211FragBuf fragbuf;
+    long numFragDataFrameReceived;
+    long numNoFragDataFrameReceived;
+    long numFragDataFrameSend;
+    long numNoFragDataFrameSend;
 
     bool *channelBusyState;
     simtime_t lastCheckChannelFreeTime = SIMTIME_ZERO;
     Ieee80211PacketList waitToSendQueue;
+    cOutVector  waitToSendQueueVector;
+    cLongHistogram waitToSendQueueStats;
     int numFrameInMac;
+    cOutVector  numFrameInMacVector;
     int maxMultiOutChannel;
 
     Ieee80211OldMac2 *macModule = nullptr;
@@ -71,6 +78,7 @@ class INET_API Ieee80211MgmtAdhocforFreqHop : public Ieee80211MgmtBase, public c
   protected:
     virtual int numInitStages() const override { return NUM_INIT_STAGES; }
     virtual void initialize(int) override;
+    virtual void finish() override;
     virtual void handleMessage(cMessage *msg) override;
 
     int  checkFreeChannel(void);
