@@ -54,6 +54,7 @@ module Ieee80211NicforFqHop like IWirelessNicMulti
         *.interfaceTableModule = default(absPath(interfaceTableModule));
         *.energySourceModule = default(absPath(energySourceModule));
         *.bandwidth = bandwidth;
+        *.carrierFrequencyBase = carrierFrequencyBase;
         @nic;
         @display("i=block/ifcard");
     gates:
@@ -83,7 +84,7 @@ module Ieee80211NicforFqHop like IWirelessNicMulti
         }
         radio[numRadios]: <radioType> like IRadio {
             parameters:
-                carrierFrequency = default(carrierFrequencyBase + (bandwidth+5MHz)*index);
+                //carrierFrequency = default(carrierFrequencyBase + (bandwidth+5MHz)*index);
                 @display("p=100,300");
         }
     connections:

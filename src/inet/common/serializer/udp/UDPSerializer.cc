@@ -98,6 +98,14 @@ cPacket *UDPSerializer::deserialize(const Buffer &b, Context& c)
                 encapPacket = serializer->deserializePacket(subBuffer, c);
                 break;
             }
+            case 1234:
+            {
+                SerializerBase *serializer = serializers.lookup("inet::ApplicationPacket");
+                if(serializer == nullptr)
+                    cRuntimeError("can't not found correspond serializer!!");
+                encapPacket = serializer->deserializePacket(subBuffer, c);
+                break;
+            }
             default:
             {
                 encapPacket = serializers.byteArraySerializer.deserializePacket(subBuffer, c);

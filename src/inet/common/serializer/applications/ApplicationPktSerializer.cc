@@ -47,8 +47,9 @@ void ApplicationPktSerializer::serialize(const cPacket *_pkt, Buffer &b, Context
 
     const ApplicationPacket *AppPkt = check_and_cast<const ApplicationPacket *>(_pkt);
     b.writeUint64(AppPkt->getSequenceNumber());
-    if(_pkt->getByteLength() > 8)
-        b.fillNBytes(AppPkt->getByteLength() - 8, 0);
+    b.writeUint64(AppPkt->getCreationtime().raw());
+    if(_pkt->getByteLength() > 16)
+        b.fillNBytes(AppPkt->getByteLength() - 16, 0);
 
 }
 
@@ -57,8 +58,13 @@ void ApplicationPktSerializer::serialize(const cPacket *_pkt, Buffer &b, Context
 cPacket *ApplicationPktSerializer::deserialize(const Buffer &b, Context& c)
 {
     ASSERT(b.getPos() == 0);
+    ApplicationPacket * pkt = new ApplicationPacket("AppPK");
+    pkt->setSequenceNumber(b.readUint64());
+    simtime_t t; t.setRaw(b.readUint64()); pkt->setCreationtime(t);
+    b.seek(b._getBufSize());
+    pkt->setByteLength(b._getBufSize());
 
-    return nullptr;
+    return pkt;
 }
 
 
