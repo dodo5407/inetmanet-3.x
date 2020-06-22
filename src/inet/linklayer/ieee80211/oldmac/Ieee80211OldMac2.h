@@ -424,6 +424,11 @@ class INET_API Ieee80211OldMac2 : public MACProtocolBase
     long numReceivedOther = 0;
     long numAckSend = 0;
     cOutVector stateVector;
+    cOutVector numReceivedVector;
+    cOutVector numReceivedMulticastVector;
+    cOutVector numReceivedOtherVector;
+    cOutVector numCollisionVector;
+    cOutVector numCollisionMulticastVector;
     simtime_t last;
     // long bits[4];
     // simtime_t minjitter[4];

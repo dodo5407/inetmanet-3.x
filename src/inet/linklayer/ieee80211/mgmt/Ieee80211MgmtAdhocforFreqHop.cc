@@ -39,7 +39,17 @@ void Ieee80211MgmtAdhocforFreqHop::initialize(int stage)
         endSIFS = new cMessage("SIFS");
         numFrameInMac = 0;
         numMac = gateSize("macOut");
-
+        numFragDataFrameReceived = 0;
+        numNoFragDataFrameReceived = 0;
+        numFragDataFrameSend = 0;
+        numNoFragDataFrameSend = 0;
+        WATCH(numFrameInMac);
+        WATCH(numFragDataFrameReceived);
+        WATCH(numNoFragDataFrameReceived);
+        WATCH(numFragDataFrameSend);
+        WATCH(numNoFragDataFrameSend);
+        waitToSendQueueVector.setName("waitToSendQueueSize");
+        numFrameInMacVector.setName("numFrameInMac");
     }
 
 
@@ -73,6 +83,17 @@ void Ieee80211MgmtAdhocforFreqHop::initialize(int stage)
     }
 }
 
+void Ieee80211MgmtAdhocforFreqHop::finish()
+{
+    recordScalar("#dataFrameReceived", numDataFramesReceived);
+    recordScalar("#dataFragDataFrameReceived", numFragDataFrameReceived);
+    recordScalar("#dataNoFragDataFrameReceived", numNoFragDataFrameReceived);
+    recordScalar("#dataFragDataFrameSent", numFragDataFrameSend);
+    recordScalar("#dataNoFragDataFrameSent", numNoFragDataFrameSend);
+
+    waitToSendQueueStats.recordAs("waitToSend queue size");
+}
+
 void Ieee80211MgmtAdhocforFreqHop::handleMessage(cMessage *msg)
 {
     if (!isOperational)
@@ -92,10 +113,13 @@ void Ieee80211MgmtAdhocforFreqHop::handleMessage(cMessage *msg)
             std::string numFragString = (dataframePair->second == -1) ? std::string(".\n") : std::string("for no.")+std::to_string(dataframePair->second)+" fragment.\n";
             if (gateindex >= 0) {
                 numFrameInMac++;
+                numFrameInMacVector.record(numFrameInMac);
                 EV_DETAIL << "The Channel of " << modulename.substr(2,6) << " is free "
                                         << numFragString;
                 send(dataframePair->first, "macOut", gateindex);
                 waitToSendQueue.pop_front();
+                waitToSendQueueVector.record(waitToSendQueue.size());
+                waitToSendQueueStats.collect(waitToSendQueue.size());
             }else if(gateindex == -1){
                 EV_DETAIL << "All Channel is busy "
                                         << numFragString;
@@ -142,6 +166,7 @@ void Ieee80211MgmtAdhocforFreqHop::receiveSignal(cComponent *source, simsignal_t
     Enter_Method_Silent();
     if (signalID == macTrasmissionFinishedSignal) {
         numFrameInMac--;
+        numFrameInMacVector.record(numFrameInMac);
         if(waitToSendQueue.empty()) {
             EV_WARN << " Ready send down to free channel, but sendqueue is empty!.\n";
             cancelEvent(endSIFS);
@@ -154,10 +179,13 @@ void Ieee80211MgmtAdhocforFreqHop::receiveSignal(cComponent *source, simsignal_t
         std::string numFragString = (dataframePair->second == -1) ? std::string(".\n") : std::string("for no.")+std::to_string(dataframePair->second)+" fragment.\n";
         if (gateindex >= 0) {
             numFrameInMac++;
+            numFrameInMacVector.record(numFrameInMac);
             EV_DETAIL << "The Channel of " << modulename.substr(2,6) << " is free "
                         << numFragString;
             send(dataframePair->first, "macOut", gateindex);
             waitToSendQueue.pop_front();
+            waitToSendQueueVector.record(waitToSendQueue.size());
+            waitToSendQueueStats.collect(waitToSendQueue.size());
         }else if(gateindex == -1){
             EV_DETAIL << "All Channel is busy "
                         << numFragString;
@@ -284,6 +312,7 @@ void Ieee80211MgmtAdhocforFreqHop::fragmentAndSend(Ieee80211DataFrameWithSNAP *d
     // check if datagram does not require fragmentation
     if (frameMTU == 0 || dataframe->getByteLength() <= frameMTU)
     {
+        numNoFragDataFrameSend++;
         sendFromFreeChannel(dataframe);
         return;
     }
@@ -330,6 +359,8 @@ void Ieee80211MgmtAdhocforFreqHop::fragmentAndSend(Ieee80211DataFrameWithSNAP *d
         sendFromFreeChannel(fragment, fragnum++);//send(msg, "macOut", gateindex);
     }
 
+    numFragDataFrameSend++;
+
     delete payload;
     delete dataframe;
 
@@ -371,6 +402,7 @@ void Ieee80211MgmtAdhocforFreqHop::reassembleAndDeliver(Ieee80211DataFrameWithSN
             EV << "No complete datagram yet.\n";
             return;
         }
+        numFragDataFrameReceived++;
         EV_DETAIL << "This fragment completes the datagram.\n";
     }else {
         dataframe->setFragmentOffset(0);
@@ -389,6 +421,7 @@ void Ieee80211MgmtAdhocforFreqHop::reassembleAndDeliver(Ieee80211DataFrameWithSN
                 dataframe->encapsulate(enc);
             }
         }
+        numNoFragDataFrameReceived++;
         EV_DETAIL << "This datagram is not fragment. Send up!\n";
     }
 
@@ -408,6 +441,8 @@ void Ieee80211MgmtAdhocforFreqHop::sendFromFreeChannel(cPacket *dataframe)
     {
         PacketFragPair *dataframePair = new PacketFragPair(dataframe, -1);
         waitToSendQueue.push_back(dataframePair);
+        waitToSendQueueVector.record(waitToSendQueue.size());
+        waitToSendQueueStats.collect(waitToSendQueue.size());
         if (gateindex == -1)
         {
             EV_DETAIL << "All Channel is busy.\n";
@@ -419,6 +454,7 @@ void Ieee80211MgmtAdhocforFreqHop::sendFromFreeChannel(cPacket *dataframe)
             scheduleAt(simTime() + macModule->getSIFS(), endSIFS);
     }else {
         numFrameInMac++;
+        numFrameInMacVector.record(numFrameInMac);
         EV_DETAIL << "The Channel of " << modulename.substr(2,6) << " is free.\n";
         send(dataframe, "macOut", gateindex);
     }
@@ -432,6 +468,8 @@ void Ieee80211MgmtAdhocforFreqHop::sendFromFreeChannel(cPacket *dataframe, int f
     {
         PacketFragPair *dataframePair = new PacketFragPair(dataframe, fragnum);
         waitToSendQueue.push_back(dataframePair);
+        waitToSendQueueVector.record(waitToSendQueue.size());
+        waitToSendQueueStats.collect(waitToSendQueue.size());
         if (gateindex == -1)
         {
             EV_DETAIL << "All Channel is busy "
@@ -445,6 +483,7 @@ void Ieee80211MgmtAdhocforFreqHop::sendFromFreeChannel(cPacket *dataframe, int f
             scheduleAt(simTime() + macModule->getSIFS(), endSIFS);
     }else {
         numFrameInMac++;
+        numFrameInMacVector.record(numFrameInMac);
         EV_DETAIL << "The Channel of " << modulename.substr(2,6) << " is free "
                         << "for " << fragnum << " fragment.\n";
         send(dataframe, "macOut", gateindex);

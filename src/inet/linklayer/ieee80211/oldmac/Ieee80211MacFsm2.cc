@@ -34,12 +34,6 @@ void Ieee80211OldMac2::endFsm(cMessage *msg)
         {
             throughput(i)->record(bits(i)/(simTime()-last));
             bits(i) = 0;
-            if (maxJitter(i) > SIMTIME_ZERO && minJitter(i) > SIMTIME_ZERO)
-            {
-                jitter(i)->record(maxJitter(i)-minJitter(i));
-                maxJitter(i) = SIMTIME_ZERO;
-                minJitter(i) = SIMTIME_ZERO;
-            }
         }
         last = simTime();
     }
@@ -167,6 +161,7 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
                     IDLE,
                     EV << "received frame contains bit errors or collision, next wait period is EIFS\n";
                     numCollision++;
+                    isMulticast(frame) ? numCollisionMulticastVector.record(1) : numCollisionVector.record(1);
                     finishReception();
                     );
             FSMA_No_Event_Transition(Immediate-Receive-Multicast,
@@ -174,6 +169,7 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
                     IDLE,
                     sendUp(frame);
                     numReceivedMulticast++;
+                    numReceivedMulticastVector.record(1);
                     finishReception();
                     );
             FSMA_No_Event_Transition(Immediate-Receive-Data,
@@ -181,6 +177,7 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
                     IDLE,
                     sendUp(frame);
                     numReceived++;
+                    numReceivedVector.record(1);
                     );
             FSMA_No_Event_Transition(Immediate-Promiscuous-Data,
                     isLowerMessage(msg) && !isForUs(frame) && isDataOrMgmtFrame(frame),
@@ -188,12 +185,14 @@ void Ieee80211OldMac2::handleWithFSM(cMessage *msg)
                     promiscousFrame(frame);
                     finishReception();
                     numReceivedOther++;
+                    numReceivedOtherVector.record(1);
                     );
             FSMA_No_Event_Transition(Immediate-Receive-Other,
                     isLowerMessage(msg),
                     IDLE,
                     finishReception();
                     numReceivedOther++;
+                    numReceivedOtherVector.record(1);
                     );
         }
     }

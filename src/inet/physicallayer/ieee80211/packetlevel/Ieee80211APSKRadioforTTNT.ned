@@ -29,9 +29,10 @@ import inet.physicallayer.apskradio.packetlevel.APSKRadio;
 module Ieee80211APSKRadioforTTNT extends APSKRadio
 {
     parameters:
+        double carrierFrequencyBase@unit(Hz);
         transmitterType = default("Ieee80211LayeredOFDMTransmitter");
         receiverType = default("Ieee80211LayeredOFDMReceiver");
-        carrierFrequency = default(2.412GHz);
+        carrierFrequency = default(carrierFrequencyBase + (bandwidth+5MHz)*ancestorIndex(0));
         bandwidth = default(20MHz);
         transmitter.power = default(0.1mW);
         receiver.sensitivity = default(-100dBm);

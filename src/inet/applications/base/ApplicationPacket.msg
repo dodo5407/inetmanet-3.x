@@ -23,4 +23,5 @@ namespace inet;
 packet ApplicationPacket
 {
     long sequenceNumber;
+    simtime_t creationtime;
 }
